@@ -1,20 +1,95 @@
 <template>
-    <div>
-      <h1>Главная</h1>
-      <router-link to="/game">Начать игру</router-link>
+  <div class="home">
+    <h1>Главная</h1>
+    <h1>Добро пожаловать в игру "Морской бой"</h1>
+    <p>Играйте против компьютера или с другом!</p>
+    <div class="game-options">
+      <button @click="createRoom">Создать комнату</button>
     </div>
-  </template>
-  
+    <div class="user-input">
+      <input v-model="username"
+      @debounced-input="saveUsername" placeholder="Введите имя пользователя" />
+    </div>
+  </div>
+</template>
 
+<script setup>
+const delay = 400;
+</script>
 <script>
 export default {
-    name: "HomeView",
+  name: "HomeView",
+  data() {
+    return {
+      roomId: null,
+      username: '',
+    };
+  },
+  created() {
+    const storedUsername = localStorage.getItem('username');
+    if (storedUsername) {
+      this.username = storedUsername;
+    }
+  },
+  methods: {
+    createRoom() {
+      this.roomId = Math.floor(Math.random() * 100000);
+      console.log("Комната создана c ID:", this.roomId);
+      this.$router.push({ name: 'room', params: { roomId: this.roomId } });
+    },
+    saveUsername() {
+      localStorage.setItem('username', this.username);
+      console.log("Имя пользователя сохранено:", this.username);
+    }
+  }
 };
 </script>
 
 <style scoped>
 .home {
-    text-align: center;
-    margin-top: 20px;
+  text-align: center;
+  margin-top: 20px;
 }
+
+.game-options {
+  display: flex;
+  justify-content: space-between;
+  margin: 20px auto;
+  max-width: 400px;
+}
+
+.game-options p {
+  flex: 1;
+  text-align: center;
+  margin: 0 10px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  cursor: pointer;
+  background-color: #f9f9f9;
+  transition: background-color 0.3s ease;
+}
+
+.game-options p:hover {
+  background-color: #e0e0e0;
+}
+
+.user-input {
+  margin-top: 20px;
+}
+
+.user-input input {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 250px;
+  margin-right: 10px;
+  transition: border-color 0.3s ease;
+}
+
+.user-input input:focus {
+  outline: none;
+  border-color: #66afe9;
+}
+
 </style>
