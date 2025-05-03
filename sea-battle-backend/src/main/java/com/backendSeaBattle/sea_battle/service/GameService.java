@@ -1,0 +1,119 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package com.backendSeaBattle.sea_battle.service;
+
+import com.backendSeaBattle.sea_battle.controllers.dto.CellCoords;
+import com.backendSeaBattle.sea_battle.models.entity.Game;
+import com.backendSeaBattle.sea_battle.models.entity.User;
+import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
+import lombok.AllArgsConstructor;
+import org.springframework.stereotype.Service;
+import com.backendSeaBattle.sea_battle.repository.GameRepository;
+import jakarta.persistence.EntityNotFoundException;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ *
+ * @author Александра
+ */
+@Service
+@AllArgsConstructor
+
+public class GameService {
+
+    private final GameRepository repository;
+    private final UserService userService;
+    private final CellService cellService;
+    private final SimpMessagingTemplate ws;
+
+    public Game startGame(User user) {
+        Game game = new Game(user, null, GameStatus.WAITINGPLAYER, user.getUser_id(), LocalDateTime.now(), null);
+        repository.save(game);
+        return game;
+    }
+
+    public GameRepository getRepository() {
+        return repository;
+    }
+
+    @Transactional
+    public JoinGameResult joinGame(Long gameId, String UserName) {
+
+        Game game = repository.findById(gameId).orElseThrow(() -> new EntityNotFoundException("Game not found: " + gameId));
+
+        if (game.getStatus() != GameStatus.WAITINGPLAYER) {
+            throw new IllegalStateException("Нельзя присоединиться, статус игры: " + game.getStatus());
+        }
+
+        User user = userService.startGame(UserName);
+
+        game.setSecondOwner(user);
+
+        game.setStatus(GameStatus.WAITINGREADY);
+        repository.save(game);
+
+        //Пушим по WebSocket
+        ws.convertAndSend(
+                "/topic/games/" + gameId,
+                Map.of("type", "playerJoined", "playerId", user.getUser_id())
+        );
+
+        return new JoinGameResult(game.getGame_id(), user.getUser_id());
+
+    }
+
+    public record JoinGameResult(Long gameId, Long playerId) {
+
+    }
+
+    public record ReadyGameResult(GameStatus gameStatus, boolean firstOwnerReady, boolean secondOwnerReady) {
+
+    }
+
+    @Transactional
+    public ReadyGameResult readyGame(Long gameId, Long PlayerId, boolean Ready, List<CellCoords> Cells) {
+        User user = userService.findById(PlayerId).orElseThrow(() -> new EntityNotFoundException("User not found: " + PlayerId));
+        Game game = repository.findById(gameId).orElseThrow(() -> new EntityNotFoundException("Game not found: " + gameId));
+        cellService.clearCellsForPlayer(game, user);
+        if (Ready) {
+            for (int i = 0; i < Cells.size(); i++) {
+                if (Cells.get(i).getX() >= 0 && (Cells.get(i).getX()) <= 9 && Cells.get(i).getY() >= 0 && (Cells.get(i).getY()) <= 9) {
+                    cellService.setCellIn(game, user, Cells.get(i).getX(), Cells.get(i).getY());
+                }
+            }
+            
+            user.setReady(true);
+            userService.save(user);
+
+            if (game.getSecondOwner().isReady() == game.getFirstOwner().isReady()) {
+                game.setStatus(GameStatus.ACTIVE);
+                repository.save(game);
+                return new ReadyGameResult(game.getStatus(), game.getFirstOwner().isReady(), game.getSecondOwner().isReady());
+            }
+
+        } else {
+            user.setReady(false);
+            userService.save(user);
+        }
+
+        return new ReadyGameResult(game.getStatus(), game.getFirstOwner().isReady(), game.getSecondOwner().isReady());
+
+    }
+
+    // ПРИ ready: TRUE
+    // проверка на валидность 
+    // ввод в базу данных
+    // изменение статуса готовности игрока
+    // сравнение статусов 
+    // при совпадении меняю GAMESTATUS
+    // при ready false 
+    // обнуляю расположение для игрока 
+    // меняю статус готовности игрока 
+}
