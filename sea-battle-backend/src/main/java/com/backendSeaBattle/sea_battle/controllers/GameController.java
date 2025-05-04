@@ -4,6 +4,8 @@
  */
 package com.backendSeaBattle.sea_battle.controllers;
 
+import com.backendSeaBattle.sea_battle.controllers.dto.FightRequest;
+import com.backendSeaBattle.sea_battle.controllers.dto.FightResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.JoinGameRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.JoinGameResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.ReadyGameRequest;
@@ -94,6 +96,17 @@ public class GameController {
         
             return ResponseEntity.ok(resp); 
     }
+    
+    @PostMapping("/{gameId}/fight")
+    public ResponseEntity <FightResponse> fight (
+            @PathVariable Long gameId, 
+            @RequestBody @Valid FightRequest req
+    
+    ){
+        return ResponseEntity.ok(resp)
+    }
+    
+    
     
     // Request:
     // gameId
