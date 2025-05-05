@@ -26,6 +26,7 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 /**
@@ -97,13 +98,19 @@ public class GameController {
             return ResponseEntity.ok(resp); 
     }
     
-    @PostMapping("/{gameId}/fight")
+    @PatchMapping("/{gameId}/fight")
     public ResponseEntity <FightResponse> fight (
             @PathVariable Long gameId, 
             @RequestBody @Valid FightRequest req
     
     ){
-        return ResponseEntity.ok(resp)
+        
+        var result =gameService.fight(
+                gameId, req.getPlayerId(), req.getCoord());
+        
+        FightResponse resp = new FightResponse(result.playerId(), result.coord(), result.State(), result.nextPlayerId()); 
+        
+        return ResponseEntity.ok(resp);
     }
     
     

@@ -27,7 +27,5 @@ public class FightRequest {
     @NotNull 
     private CellCoords coord; 
     
-    @NotNull 
-    private CellState State; 
-    
+
 }

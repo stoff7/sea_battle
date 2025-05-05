@@ -5,8 +5,10 @@
 package com.backendSeaBattle.sea_battle.service;
 
 import com.backendSeaBattle.sea_battle.controllers.dto.CellCoords;
+import com.backendSeaBattle.sea_battle.models.entity.Cell;
 import com.backendSeaBattle.sea_battle.models.entity.Game;
 import com.backendSeaBattle.sea_battle.models.entity.User;
+import com.backendSeaBattle.sea_battle.models.enums.CellState;
 import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,7 @@ import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -106,14 +109,59 @@ public class GameService {
         return new ReadyGameResult(game.getStatus(), game.getFirstOwner().isReady(), game.getSecondOwner().isReady());
 
     }
+    
+    public Optional<Game> findById(Long id) {
+        return repository.findById(id);
+    }
 
-    // ПРИ ready: TRUE
-    // проверка на валидность 
-    // ввод в базу данных
-    // изменение статуса готовности игрока
-    // сравнение статусов 
-    // при совпадении меняю GAMESTATUS
-    // при ready false 
-    // обнуляю расположение для игрока 
-    // меняю статус готовности игрока 
+ 
+    @Transactional
+
+    public FightResult fight(Long gameId, Long playerId, CellCoords coord) {
+        // 1) Загрузить сущности
+        User user = userService.findById(playerId).orElseThrow(() -> new EntityNotFoundException("User not found: " + playerId));
+        Game game = repository.findById(gameId).orElseThrow(() -> new EntityNotFoundException("Game not found: " + gameId));
+
+        // 2) Проверить очередь
+        if (!game.getCurrentTurn().equals(playerId)) {
+            throw new IllegalStateException("Нельзя ходить, ход: " + game.getCurrentTurn());
+        }
+
+        // 3) Определить противника
+        User defender = game.getFirstOwner().getUser_id().equals(playerId)
+                ? game.getSecondOwner()
+                : game.getFirstOwner();
+
+        // 4) Попадание?
+        Optional<Cell> targetCell = cellService
+                .findByGameAndOwnerAndXAndY(game, defender, coord.getX(), coord.getY());
+
+        CellState resultState;
+        
+        if (targetCell.isPresent() && targetCell.get().getStatus() == CellState.SHIP) {
+            Cell cell = targetCell.get();
+            cell.setStatus(CellState.HIT);
+            cellService.save(cell);
+            resultState = CellState.HIT;
+        } else {
+            // промах — создаём запись MISS
+            Cell miss = new Cell(game, defender, coord.getX(), coord.getY(), CellState.MISS);
+            cellService.save(miss);
+            resultState = CellState.MISS;
+        }
+
+        Long nextPlayerId = defender.getUser_id();
+        game.setCurrentTurn(nextPlayerId);
+        repository.save(game);
+
+        // 6) Вернуть результат
+        return new FightResult(playerId, coord, resultState, nextPlayerId);
+    }
+
+    public record FightResult(Long playerId, CellCoords coord, CellState State, Long nextPlayerId) {
+
+    }
+    
+
+
 }

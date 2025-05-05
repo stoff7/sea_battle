@@ -4,6 +4,7 @@
  */
 package com.backendSeaBattle.sea_battle.controllers.dto;
 
+import com.backendSeaBattle.sea_battle.models.enums.CellState;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -25,9 +26,15 @@ public class FightResponse {
     private Long playerId; 
     
     @NotNull 
-    private CellCoords coord; 
+    private CellCoords coord;
+
+    @NotNull
+    private CellState State;
     
-    
+    @NotNull 
+    private Long nextPlayerId; 
+
+
     
     
 }
