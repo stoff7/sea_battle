@@ -91,7 +91,7 @@ public class GameService {
                     cellService.setCellIn(game, user, Cells.get(i).getX(), Cells.get(i).getY());
                 }
             }
-            
+
             user.setReady(true);
             userService.save(user);
 
@@ -109,12 +109,11 @@ public class GameService {
         return new ReadyGameResult(game.getStatus(), game.getFirstOwner().isReady(), game.getSecondOwner().isReady());
 
     }
-    
+
     public Optional<Game> findById(Long id) {
         return repository.findById(id);
     }
 
- 
     @Transactional
 
     public FightResult fight(Long gameId, Long playerId, CellCoords coord) {
@@ -137,7 +136,7 @@ public class GameService {
                 .findByGameAndOwnerAndXAndY(game, defender, coord.getX(), coord.getY());
 
         CellState resultState;
-        
+
         if (targetCell.isPresent() && targetCell.get().getStatus() == CellState.SHIP) {
             Cell cell = targetCell.get();
             cell.setStatus(CellState.HIT);
@@ -161,7 +160,26 @@ public class GameService {
     public record FightResult(Long playerId, CellCoords coord, CellState State, Long nextPlayerId) {
 
     }
-    
 
+    @Transactional
+    public GameStatus endGame(Long gameId, Long playerId) {
+        Game game = repository.findById(gameId).orElseThrow(() -> new EntityNotFoundException("Game not found: " + gameId));
+        User user = userService.findById(playerId).orElseThrow(() -> new EntityNotFoundException("User not found: " + playerId));
+
+        User defender = game.getFirstOwner().getUser_id().equals(playerId)
+                ? game.getSecondOwner()
+                : game.getFirstOwner();
+
+        if (!cellService.existsByGameAndOwnerAndStatus(game, defender, CellState.SHIP)) {
+            game.setStatus(GameStatus.FINISHED);
+            game.setFinishedAt(LocalDateTime.now());
+                repository.save(game);
+            cellService.deleteAllByGameAndOwner(game, user); 
+            cellService.deleteAllByGameAndOwner(game, defender); 
+
+        }
+        
+        return game.getStatus();
+    }
 
 }

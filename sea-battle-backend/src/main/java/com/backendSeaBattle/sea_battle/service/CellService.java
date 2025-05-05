@@ -9,6 +9,7 @@ import com.backendSeaBattle.sea_battle.models.entity.Cell;
 import com.backendSeaBattle.sea_battle.models.entity.Game;
 import com.backendSeaBattle.sea_battle.models.entity.User;
 import com.backendSeaBattle.sea_battle.models.enums.CellState;
+import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
 import com.backendSeaBattle.sea_battle.repository.CellRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.Optional;
@@ -44,6 +45,16 @@ public class CellService {
 
     public Optional<Cell> findByGameAndOwnerAndXAndY(Game game, User owner, int x, int y) {
         return repository.findByGameAndOwnerAndXAndY(game, owner, x, y);
+    }
+
+    public boolean existsByGameAndOwnerAndStatus(Game game, User owner, CellState status) {
+        return repository.existsByGameAndOwnerAndStatus(game, owner, status);
+
+    }
+
+    public void deleteAllByGameAndOwner(Game game, User owner) {
+        repository.deleteAllByGameAndOwner(game, owner);
+
     }
 
 }

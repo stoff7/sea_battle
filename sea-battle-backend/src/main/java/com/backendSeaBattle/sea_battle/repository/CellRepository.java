@@ -22,5 +22,7 @@ public interface CellRepository extends JpaRepository<Cell, Long> {
     boolean existsByXAndY(int x, int y);
 
     Optional<Cell> findByGameAndOwnerAndXAndY(Game game, User owner, int x, int y);
+    
+    boolean existsByGameAndOwnerAndStatus(Game game, User owner, CellState status);
 
 }

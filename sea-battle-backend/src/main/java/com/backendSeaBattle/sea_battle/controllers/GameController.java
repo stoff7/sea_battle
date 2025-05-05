@@ -12,6 +12,7 @@ import com.backendSeaBattle.sea_battle.controllers.dto.ReadyGameRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.ReadyGameResponse;
 import com.backendSeaBattle.sea_battle.models.entity.Game;
 import com.backendSeaBattle.sea_battle.models.entity.User;
+import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
 import java.util.Map;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -108,7 +109,9 @@ public class GameController {
         var result =gameService.fight(
                 gameId, req.getPlayerId(), req.getCoord());
         
-        FightResponse resp = new FightResponse(result.playerId(), result.coord(), result.State(), result.nextPlayerId()); 
+        GameStatus gameStatus = gameService.endGame(gameId, req.getPlayerId());
+        
+        FightResponse resp = new FightResponse(result.playerId(), result.coord(), result.State(), result.nextPlayerId(), gameStatus); 
         
         return ResponseEntity.ok(resp);
     }
