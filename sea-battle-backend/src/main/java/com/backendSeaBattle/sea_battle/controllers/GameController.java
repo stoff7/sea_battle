@@ -97,7 +97,11 @@ public class GameController {
             
         } catch (EntityNotFoundException ex) {
             return ResponseEntity.notFound().build();
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ReadyGameResponse(ex.getMessage()));
         }
+        
 
     }
 

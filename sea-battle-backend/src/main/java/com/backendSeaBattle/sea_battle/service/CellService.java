@@ -52,9 +52,4 @@ public class CellService {
 
     }
 
-    public void deleteAllByGameAndOwner(Game game, User owner) {
-        repository.deleteAllByGameAndOwner(game, owner);
-
-    }
-
 }

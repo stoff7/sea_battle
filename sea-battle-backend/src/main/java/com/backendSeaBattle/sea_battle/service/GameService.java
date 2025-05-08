@@ -89,7 +89,12 @@ public class GameService {
         if (Ready) {
             for (int i = 0; i < Cells.size(); i++) {
                 if (Cells.get(i).getX() >= 0 && (Cells.get(i).getX()) <= 9 && Cells.get(i).getY() >= 0 && (Cells.get(i).getY()) <= 9) {
-                    cellService.setCellIn(game, user, Cells.get(i).getX(), Cells.get(i).getY());
+                    if (!cellService.findByGameAndOwnerAndXAndY(game, user, Cells.get(i).getX(), Cells.get(i).getY()).isPresent()) {
+                        cellService.setCellIn(game, user, Cells.get(i).getX(), Cells.get(i).getY());
+                    } else {
+                        throw new IllegalStateException("Координаты дублируются: X = " + Cells.get(i).getX() + "Y = " +  Cells.get(i).getY());
+                    }
+
                 }
             }
 
@@ -169,6 +174,8 @@ public class GameService {
             cell.setStatus(CellState.HIT);
             cellService.save(cell);
             resultState = CellState.HIT;
+        } else if (targetCell.isPresent() && (targetCell.get().getStatus() == CellState.HIT || targetCell.get().getStatus() == CellState.MISS)) {
+            throw new IllegalStateException("Нельзя ходить, в данную координату был ход");
         } else {
             // промах — создаём запись MISS
             Cell miss = new Cell(game, defender, coord.getX(), coord.getY(), CellState.MISS);
@@ -212,8 +219,8 @@ public class GameService {
             game.setStatus(GameStatus.FINISHED);
             game.setFinishedAt(LocalDateTime.now());
             repository.save(game);
-            cellService.deleteAllByGameAndOwner(game, user);
-            cellService.deleteAllByGameAndOwner(game, defender);
+            cellService.clearCellsForPlayer(game, user);
+            cellService.clearCellsForPlayer(game, defender);
 
             ws.convertAndSend(
                     "/topic/games/" + gameId,

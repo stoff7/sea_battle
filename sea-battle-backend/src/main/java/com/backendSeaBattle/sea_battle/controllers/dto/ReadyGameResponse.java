@@ -5,6 +5,7 @@
 package com.backendSeaBattle.sea_battle.controllers.dto;
 
 import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
+import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 
 /**
@@ -13,15 +14,22 @@ import lombok.NoArgsConstructor;
  */
 
 @NoArgsConstructor 
+@AllArgsConstructor 
+
 public class ReadyGameResponse {
     GameStatus gameStatus; 
     boolean firstOwnerReady; 
     boolean secondOwnerReady;
+    String message; 
 
     public ReadyGameResponse(GameStatus gameStatus, boolean firstOwnerReady, boolean secondOwnerReady) {
         this.gameStatus = gameStatus;
         this.firstOwnerReady = firstOwnerReady;
         this.secondOwnerReady = secondOwnerReady;
+    }
+
+    public ReadyGameResponse(String message) {
+        this.message = message;
     }
 
     public GameStatus getGameStatus() {
@@ -47,6 +55,15 @@ public class ReadyGameResponse {
     public void setSecondOwnerReady(boolean secondOwnerReady) {
         this.secondOwnerReady = secondOwnerReady;
     }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+    
     
     
     
