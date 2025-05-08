@@ -23,20 +23,30 @@ import lombok.Setter;
 @Setter 
 
 public class FightResponse {
-    @NotNull 
+
     private Long playerId; 
     
-    @NotNull 
+
     private CellCoords coord;
 
-    @NotNull
     private CellState State;
     
-    @NotNull 
+
     private Long nextPlayerId; 
     
-    @NotNull 
     private GameStatus gameStatus; 
+    
+    private String message;
+
+    public FightResponse(Long playerId, CellCoords coord, CellState State, Long nextPlayerId, GameStatus gameStatus) {
+        this.playerId = playerId;
+        this.coord = coord;
+        this.State = State;
+        this.nextPlayerId = nextPlayerId;
+        this.gameStatus = gameStatus;
+    }
+    
+    
 
 
 

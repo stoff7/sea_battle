@@ -36,16 +36,16 @@ import org.springframework.web.bind.annotation.PathVariable;
  *
  * @author Александра
  */
-
 @RestController
 @RequestMapping("/api/v1")
 @AllArgsConstructor
 
 public class GameController {
+
     private final GameService gameService;
     private final UserService userService;
     private final CellService cellService;
-    
+
     @PostMapping("/start_game")
     public ResponseEntity<StartGameResponse> startGame(@RequestBody @Valid StartGameRequest req) {
         User user = userService.startGame(req.getUserName());
@@ -53,93 +53,94 @@ public class GameController {
         Game game = gameService.startGame(user);
         Long gameId = game.getGame_id();
 
-        StartGameResponse resp = new StartGameResponse (playerId, gameId);
+        StartGameResponse resp = new StartGameResponse(playerId, gameId);
         return ResponseEntity.ok(resp);
-        
+
     }
-    
+
     @PostMapping("/join_game")
     public ResponseEntity<JoinGameResponse> joinGame(@RequestBody @Valid JoinGameRequest req) {
 
         Long gameId = req.getGameId();
-        
+
         try {
             var result = gameService.joinGame(gameId, req.getUserName());
             return ResponseEntity.ok(
-              new JoinGameResponse(result.gameId(), result.playerId())
+                    new JoinGameResponse(result.gameId(), result.playerId())
             );
         } catch (EntityNotFoundException ex) {
             return ResponseEntity.notFound().build();
         } catch (IllegalStateException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                                 .body(new JoinGameResponse(null, null, ex.getMessage()));
+                    .body(new JoinGameResponse(null, null, ex.getMessage()));
         }
-        
+
     }
-    
+
     @PostMapping("/{gameId}/ready_game")
     public ResponseEntity<ReadyGameResponse> readyGame(
-            @PathVariable Long gameId, 
+            @PathVariable Long gameId,
             @RequestBody @Valid ReadyGameRequest req
-    ){
-        var result = gameService.readyGame(
-                gameId, req.getPlayerId(), req.getReady(), req.getCells()
-        );
-        // result содержит: GameStatus, флаги готовности каждого
-        ReadyGameResponse resp = new ReadyGameResponse(
-                result.gameStatus(),
-                result.firstOwnerReady(), 
-                result.secondOwnerReady()
-        );
+    ) {
+        try {
+            var result = gameService.readyGame(
+                    gameId, req.getPlayerId(), req.getReady(), req.getCells()
+            );
+            // result содержит: GameStatus, флаги готовности каждого
+            ReadyGameResponse resp = new ReadyGameResponse(
+                    result.gameStatus(),
+                    result.firstOwnerReady(),
+                    result.secondOwnerReady()
+            );
 
-        
-            return ResponseEntity.ok(resp); 
+            return ResponseEntity.ok(resp);
+            
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.notFound().build();
+        }
+
     }
-    
+
     @PatchMapping("/{gameId}/fight")
-    public ResponseEntity <FightResponse> fight (
-            @PathVariable Long gameId, 
+    public ResponseEntity<FightResponse> fight(
+            @PathVariable Long gameId,
             @RequestBody @Valid FightRequest req
-    
-    ){
-        
-        var result =gameService.fight(
-                gameId, req.getPlayerId(), req.getCoord());
-        
-        GameStatus gameStatus = gameService.endGame(gameId, req.getPlayerId());
-        
-        FightResponse resp = new FightResponse(result.playerId(), result.coord(), result.State(), result.nextPlayerId(), gameStatus); 
-        
-        return ResponseEntity.ok(resp);
+    ) {
+
+        try {
+            var result = gameService.fight(
+                    gameId, req.getPlayerId(), req.getCoord());
+
+            GameStatus gameStatus = gameService.endGame(gameId, req.getPlayerId());
+
+            FightResponse resp = new FightResponse(result.playerId(), result.coord(), result.State(), result.nextPlayerId(), gameStatus);
+            return ResponseEntity.ok(resp);
+
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new FightResponse(null, null, null, null, null, ex.getMessage()));
+        }
     }
-    
-    
-    
+
     // Request:
     // gameId
     // playerId
     // ready: TRUE, FALSE 
     // ships [[], [], ]
-    
     // Response: 
     // gameStatus: WAITINGREADY, ACTIVE
     // firstOwnerReady: TRUE, FALSE 
     // secondOwnerReady: TRUE, FALSE 
-    
     // XY - СТОЛБЕЦ, СТРОКА
-    
     // ПРИ ready: TRUE
-   // проверка на валидность 
-   // ввод в базу данных
-  // изменение статуса готовности игрока
+    // проверка на валидность 
+    // ввод в базу данных
+    // изменение статуса готовности игрока
     // сравнение статусов 
     // при совпадении меняю GAMESTATUS
-    
     // при ready false 
     // обнуляю расположение для игрока 
     // меняю статус готовности игрока 
-    
-    
-    
-    
 }
