@@ -8,6 +8,8 @@ import com.backendSeaBattle.sea_battle.controllers.dto.JoinGameRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.JoinGameResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.ReadyGameRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.ReadyGameResponse;
+import com.backendSeaBattle.sea_battle.controllers.dto.StartGameRequest;
+import com.backendSeaBattle.sea_battle.controllers.dto.StartGameResponse;
 import com.backendSeaBattle.sea_battle.models.entity.Game;
 import com.backendSeaBattle.sea_battle.models.entity.User;
 import java.util.Map;
@@ -41,18 +43,13 @@ public class GameController {
     private final CellService cellService;
     
     @PostMapping("/start_game")
-    public ResponseEntity<Map<String, Long>> startGame(@RequestBody Map<String, String> body ) {
-        String userName = body.get("userName");
-        User user = userService.startGame(userName);
+    public ResponseEntity<StartGameResponse> startGame(@RequestBody @Valid StartGameRequest req) {
+        User user = userService.startGame(req.getUserName());
         Long playerId = user.getUser_id();
         Game game = gameService.startGame(user);
         Long gameId = game.getGame_id();
-        
-        Map<String, Long> resp = Map.of(
-                "playerId", playerId,
-                "gameId", gameId
-        );
 
+        StartGameResponse resp = new StartGameResponse (playerId, gameId);
         return ResponseEntity.ok(resp);
         
     }
