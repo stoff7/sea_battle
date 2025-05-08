@@ -61,6 +61,56 @@ public class Cell {
         this.y = y;
         this.status = status;
     }
+
+    public Long getCell_id() {
+        return cell_id;
+    }
+
+    public void setCell_id(Long cell_id) {
+        this.cell_id = cell_id;
+    }
+
+    public Game getGame() {
+        return game;
+    }
+
+    public void setGame(Game game) {
+        this.game = game;
+    }
+
+    public User getOwner() {
+        return owner;
+    }
+
+    public void setOwner(User owner) {
+        this.owner = owner;
+    }
+
+    public int getX() {
+        return x;
+    }
+
+    public void setX(int x) {
+        this.x = x;
+    }
+
+    public int getY() {
+        return y;
+    }
+
+    public void setY(int y) {
+        this.y = y;
+    }
+
+    public CellState getStatus() {
+        return status;
+    }
+
+    public void setStatus(CellState status) {
+        this.status = status;
+    }
+    
+    
     
     
     
