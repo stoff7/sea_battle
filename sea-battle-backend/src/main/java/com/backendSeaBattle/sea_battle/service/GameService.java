@@ -65,7 +65,8 @@ public class GameService {
         //Пушим по WebSocket
         ws.convertAndSend(
                 "/topic/games/" + gameId,
-                Map.of("type", "playerJoined", "playerId", user.getUser_id())
+                Map.of("type", "playerJoined",
+                        "playerId", user.getUser_id())
         );
 
         return new JoinGameResult(game.getGame_id(), user.getUser_id());
@@ -95,15 +96,41 @@ public class GameService {
             user.setReady(true);
             userService.save(user);
 
+            ws.convertAndSend(
+                    "/topic/games/" + gameId,
+                    Map.of(
+                            "type", "playerReady",
+                            "playerId", user.getUser_id(),
+                            "firstOwnerReady", game.getFirstOwner().isReady(),
+                            "secondOwnerReady", game.getSecondOwner().isReady(),
+                            "gameStatus", game.getStatus()
+                    )
+            );
+
             if (game.getSecondOwner().isReady() == game.getFirstOwner().isReady()) {
                 game.setStatus(GameStatus.ACTIVE);
                 repository.save(game);
+                ws.convertAndSend(
+                        "/topic/games/" + gameId,
+                        Map.of("type", "gameStarted")
+                );
                 return new ReadyGameResult(game.getStatus(), game.getFirstOwner().isReady(), game.getSecondOwner().isReady());
             }
 
         } else {
             user.setReady(false);
             userService.save(user);
+            ws.convertAndSend(
+                    "/topic/games/" + gameId,
+                    Map.of(
+                            "type", "playerReady",
+                            "playerId", user.getUser_id(),
+                            "firstOwnerReady", game.getFirstOwner().isReady(),
+                            "secondOwnerReady", game.getSecondOwner().isReady(),
+                            "gameStatus", game.getStatus()
+                    )
+            );
+
         }
 
         return new ReadyGameResult(game.getStatus(), game.getFirstOwner().isReady(), game.getSecondOwner().isReady());
@@ -153,6 +180,17 @@ public class GameService {
         game.setCurrentTurn(nextPlayerId);
         repository.save(game);
 
+        ws.convertAndSend(
+                "/topic/games/" + gameId,
+                Map.of(
+                        "type", "shotFired",
+                        "by", playerId,
+                        "x", coord.getX(),
+                        "y", coord.getY(),
+                        "result", resultState.name(),
+                        "nextPlayerId", nextPlayerId
+                )
+        );
         // 6) Вернуть результат
         return new FightResult(playerId, coord, resultState, nextPlayerId);
     }
@@ -173,12 +211,20 @@ public class GameService {
         if (!cellService.existsByGameAndOwnerAndStatus(game, defender, CellState.SHIP)) {
             game.setStatus(GameStatus.FINISHED);
             game.setFinishedAt(LocalDateTime.now());
-                repository.save(game);
-            cellService.deleteAllByGameAndOwner(game, user); 
-            cellService.deleteAllByGameAndOwner(game, defender); 
+            repository.save(game);
+            cellService.deleteAllByGameAndOwner(game, user);
+            cellService.deleteAllByGameAndOwner(game, defender);
+
+            ws.convertAndSend(
+                    "/topic/games/" + gameId,
+                    Map.of(
+                            "type", "gameFinished",
+                            "winnerId", playerId
+                    )
+            );
 
         }
-        
+
         return game.getStatus();
     }
 
