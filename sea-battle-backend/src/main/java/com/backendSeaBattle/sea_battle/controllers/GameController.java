@@ -4,6 +4,8 @@
  */
 package com.backendSeaBattle.sea_battle.controllers;
 
+import com.backendSeaBattle.sea_battle.controllers.dto.FightRequest;
+import com.backendSeaBattle.sea_battle.controllers.dto.FightResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.JoinGameRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.JoinGameResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.ReadyGameRequest;
@@ -12,6 +14,7 @@ import com.backendSeaBattle.sea_battle.controllers.dto.StartGameRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.StartGameResponse;
 import com.backendSeaBattle.sea_battle.models.entity.Game;
 import com.backendSeaBattle.sea_battle.models.entity.User;
+import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
 import java.util.Map;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +29,7 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 /**
@@ -91,6 +95,25 @@ public class GameController {
         
             return ResponseEntity.ok(resp); 
     }
+    
+    @PatchMapping("/{gameId}/fight")
+    public ResponseEntity <FightResponse> fight (
+            @PathVariable Long gameId, 
+            @RequestBody @Valid FightRequest req
+    
+    ){
+        
+        var result =gameService.fight(
+                gameId, req.getPlayerId(), req.getCoord());
+        
+        GameStatus gameStatus = gameService.endGame(gameId, req.getPlayerId());
+        
+        FightResponse resp = new FightResponse(result.playerId(), result.coord(), result.State(), result.nextPlayerId(), gameStatus); 
+        
+        return ResponseEntity.ok(resp);
+    }
+    
+    
     
     // Request:
     // gameId
