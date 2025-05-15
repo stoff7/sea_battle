@@ -1,129 +1,307 @@
 <template>
-  <div class="grid" @dragover.prevent>
-    <div
-      v-for="(cell, index) in grid"
-      :key="index"
-      class="cell"
-      @dragenter.prevent
-      @dragover.prevent
-      @drop="onDrop($event, index)"
-    >
-      <!-- Делает placeholder draggable -->
-      <div
-        v-if="cell"
-        class="draggable-placeholder"
-        draggable="true"
-        @dragstart="onDragStart(cell, index, $event)"
-      >
-        {{ cell }}
+  <div class="battle-container">
+
+    <!-- Игровая сетка -->
+    <div class="grid" @dragover.prevent @dragenter.prevent>
+      <div v-for="(cell, idx) in gridSize * gridSize" :key="idx" class="cell"
+        :class="{ 'adjacent-cell': adjacentCells.has(idx) }" @dragover.prevent @drop="onDrop($event, idx)">
+      </div>
+
+
+      <!-- Отрисовка уже размещённых кораблей -->
+      <div v-for="ship in ships" :key="ship.id" class="ship" :style="shipStyle(ship)" @dblclick="removeShip(ship)"
+        draggable="true" @pointerdown="onPointerDown($event)" @dragstart="onShipDragStart(ship, $event)">
+        <div v-for="(coord, i) in ship.coords" :key="i" class="cell ship-cell" :data-index="i"
+          :style="{ width: cellPx + 'px', height: cellPx + 'px' }">
+          {{ ship.name }}
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="palette">
-    <div
-      v-for="it in items"
-      :key="it.id"
-      class="palette-item"
-      draggable="true"
-      @dragstart="onDragStart(it, null, $event)"
-    >
-      {{ it.label }} ({{ it.w }}×{{ it.h }})
+    <!-- Список доступных кораблей -->
+    <div class="palette" style="display: grid-template-columns repeat(2, max-content);">
+      <div v-for="ship in availableShips" :key="ship.id" class="ship-placeholder" draggable="true"
+        @pointerdown="onPointerDown($event)" @dragstart="onDragStart(ship, $event)"
+        :style="{ width: ship.w * cellPx + 'px', height: ship.h * cellPx + 'px' }">
+        <!-- Клеточная отрисовка плейсхолдера -->
+        <div class="row" v-for="r in ship.h" :key="`r${r}`">
+          <div v-for="c in ship.w" :key="`r${r}c${c}`" class="cell ship-cell" :data-index="c - 1"
+            :style="{ width: cellPx + 'px', height: cellPx + 'px' }">
+            {{ ship.name }}
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
+<script>
 
-// размер поля и плоский массив 100 ячеек :contentReference[oaicite:3]{index=3}
-const gridSize = 10
-const grid = ref(Array(gridSize * gridSize).fill(null))
 
-// описание кораблей (w×h) :contentReference[oaicite:4]{index=4}
-const items = [
-  { id: 1, label: 'A', w: 1, h: 1 },
-  { id: 2, label: 'B', w: 2, h: 1 },
-  { id: 3, label: 'C', w: 3, h: 1 },
-  { id: 4, label: 'D', w: 4, h: 1 },
-]
+export default {
+  name: 'BattleField',
+  props: {
+    availableShips: { type: Array, required: true },
+    ships: { type: Array, required: true },
+    ready: { type: Boolean, required: true },
+  },
+  data() {
+    return {
+      gridSize: 10,
+      cellPx: 40,
+      dragged: null,
+      grabbedIndex: 0,
+      adjacentCells: new Set(),
+    };
+  },
+  watch: {
+    // Будет срабатывать на любую мутацию массива ships (добавление/удаление/изменение coords)
+    ships: {
+      handler() {
+        this.updateAdjacentHighlight();
+      },
+      deep: true,
+      immediate: true, // сразу при монтировании
+    }
+  },
+  methods: {
+    removeShip(ship) {
+      this.$emit('remove-ship', ship);
+    },
 
-let draggedItem = null
-let draggedFromIndex = null
+    canPlaceAt(cellIndices, ignoreShipId = null) {
+      const forbidden = new Set();
 
-function onDragStart(item, fromIndex, ev) {
-  draggedItem = item
-  draggedFromIndex = fromIndex
-  // разрешаем move-операцию :contentReference[oaicite:5]{index=5}
-  ev.dataTransfer.effectAllowed = 'move'
-  ev.dataTransfer.dropEffect = 'move'  // курсор “move” :contentReference[oaicite:6]{index=6}
-}
+      for (const ship of this.ships) {
+        if (ship.id === ignoreShipId) continue;
 
-function onDrop(ev, idx) {
-  if (!draggedItem) return
+        // занятые клетки
+        ship.coords.forEach(([x, y]) =>
+          forbidden.add(y * this.gridSize + x)
+        );
 
-  const row = Math.floor(idx / gridSize)
-  const col = idx % gridSize
+        // соседние
+        this.getAdjacentCells(ship).forEach(i =>
+          forbidden.add(i)
+        );
+      }
 
-  // если из палитры — проверяем, что такого label ещё нет на поле :contentReference[oaicite:7]{index=7}
-  const exists = grid.value.includes(draggedItem.label)
-  if (draggedFromIndex === null && exists) {
-    draggedItem = null
-    return
-  }
+      return cellIndices.every(i => !forbidden.has(i));
+    },
+    // Сохраняем индекс захваченной ячейки
+    onPointerDown(e) {
+      const cell = e.target.closest('.ship-cell');
+      if (cell && cell.dataset.index !== undefined) {
+        this.grabbedIndex = Number(cell.dataset.index);
+      } else {
+        // для плейсхолдера возьмем первую клетку
+        this.grabbedIndex = 0;
+      }
+    },
+    onShipDragStart(ship, ev) {
+      if (this.ready) {
+        return;
+      }
 
-  // если перемещаем с поля — сначала очищаем старую область :contentReference[oaicite:8]{index=8}
-  if (draggedFromIndex !== null) {
-    const r0 = Math.floor(draggedFromIndex / gridSize)
-    const c0 = draggedFromIndex % gridSize
-    for (let dy = 0; dy < draggedItem.h; dy++) {
-      for (let dx = 0; dx < draggedItem.w; dx++) {
-        const r = r0 + dy, c = c0 + dx
-        if (r < gridSize && c < gridSize) {
-          grid.value[r * gridSize + c] = null
+      this.dragged = ship;
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('application/json',
+        JSON.stringify({
+          shipId: ship.id,
+          grabbedIndex: this.grabbedIndex
+        })
+
+      );
+      this.updateAdjacentHighlight();
+    },
+    moveShip(ship, row, col, grabbedIndex) {
+      const startX = col - grabbedIndex;
+      const startY = row;
+      const newCoords = [];
+      for (let i = 0; i < ship.w; i++) {
+        newCoords.push([startX + i, startY]);
+      }
+      //
+      if (!this.boundCheck(newCoords, ship.id)) {
+        return;
+      }
+      ship.coords = newCoords;
+      this.updateAdjacentHighlight();
+    },
+    onDragStart(ship, ev) {
+      this.dragged = ship;
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('application/json',
+        JSON.stringify({ ship, grabbedIndex: this.grabbedIndex })
+      );
+    },
+    onDrop(ev, idx) {
+      const payload = JSON.parse(ev.dataTransfer.getData('application/json'));
+      const row = Math.floor(idx / this.gridSize);
+      const col = idx % this.gridSize;
+
+      const existing = this.ships.find(s => s.id === payload.shipId);
+      if (existing) {
+        this.moveShip(existing, row, col, payload.grabbedIndex);
+      } else {
+        // Генерим новые coords
+        const newCoords = [];
+        for (let i = 0; i < payload.ship.w; i++) {
+          newCoords.push([col - payload.grabbedIndex + i, row]);
+        }
+        // Проверка, что каждая клетка внутри поля
+        if (!this.boundCheck(newCoords, null)) {
+          return;
+        }
+
+        // Если всё ок — эмитим создание
+        this.$emit('place-ship', {
+          ship: payload.ship,
+          row, col,
+          grabbedIndex: payload.grabbedIndex
+        });
+        this.updateAdjacentHighlight();
+      }
+
+      this.resetDragState();
+    },
+    shipStyle(ship) {
+      const [x0, y0] = ship.coords[0];
+      return {
+        position: 'absolute',
+        top: y0 * this.cellPx + 'px',
+        left: x0 * this.cellPx + 'px',
+        display: 'flex'
+      };
+    },
+    getAdjacentCells(ship) {
+      const deltas = [
+        [-1, -1], [-1, 0], [-1, 1],
+        [0, -1], /*self*/[0, 1],
+        [1, -1], [1, 0], [1, 1],
+      ];
+      const neighbors = new Set();
+
+      for (const [x, y] of ship.coords) {
+        for (const [dx, dy] of deltas) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (
+            nx >= 0 && nx < this.gridSize &&
+            ny >= 0 && ny < this.gridSize &&
+            !ship.coords.some(([sx, sy]) => sx === nx && sy === ny)
+          ) {
+            neighbors.add(ny * this.gridSize + nx);
+          }
         }
       }
-    }
-  }
 
-  // заполняем новую область w×h :contentReference[oaicite:9]{index=9}
-  for (let dy = 0; dy < draggedItem.h; dy++) {
-    for (let dx = 0; dx < draggedItem.w; dx++) {
-      const r = row + dy, c = col + dx
-      if (r < gridSize && c < gridSize) {
-        grid.value[r * gridSize + c] = draggedItem.label
+      return neighbors;
+    },
+    updateAdjacentHighlight() {
+      this.adjacentCells.clear();
+      for (const ship of this.ships) {
+        const adj = this.getAdjacentCells(ship);
+        adj.forEach(i => this.adjacentCells.add(i));
       }
+    },
+    resetDragState() {
+      this.dragged = null;
+      this.grabbedIndex = 0;
+    },
+    boundCheck(newCoords, shipId) {
+      const allInside = newCoords.every(
+        ([x, y]) =>
+          x >= 0 && x < this.gridSize &&
+          y >= 0 && y < this.gridSize
+      );
+      if (!allInside) {
+        console.warn('Нельзя ставить корабль за пределами поля:', newCoords);
+        this.resetDragState();
+        return false;
+      }
+
+      const flatIndices = newCoords.map(([x, y]) => y * this.gridSize + x);
+      if (!this.canPlaceAt(flatIndices, shipId)) {
+        console.warn('Нельзя ставить на занятые или соседние клетки');
+        this.resetDragState();
+        return false;
+      }
+      return true;
     }
   }
-
-  // сброс состояния перетаскивания
-  draggedItem = null
-  draggedFromIndex = null
-}
+};
 </script>
 
 <style scoped>
+.battle-container {
+  display: flex;
+  gap: 5px;
+}
+
 .grid {
-  display: grid; 
-  grid-template-columns: repeat(10, 40px);
-  grid-template-rows:    repeat(10, 40px);
-  gap: 2px;
-}
-.cell {
-  border: 1px solid #ccc;
-  background: #f5f5f5;
   position: relative;
+  display: grid;
+  grid-template-columns: repeat(10, 40px);
+  grid-template-rows: repeat(10, 40px);
+  gap: 0px;
+  background: #eef;
 }
-.draggable-placeholder {
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
-  background: #4caf50; color: white;
-  pointer-events: auto; 
+
+.cell {
+  width: 40px;
+  height: 40px;
+  background: #fff;
+  border: 1px solid #ccc;
 }
+
+.ship {
+  cursor: grab;
+}
+
+.ship-cell {
+  background: #4caf50;
+  color: white;
+  border: 1px solid #333;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.ship-cell:hover {
+  background: #3e8e41;
+}
+
+.ship-placeholder {
+  cursor: grab;
+  position: relative;
+  user-select: none;
+}
+
+.row {
+  display: flex;
+}
+
 .palette {
-  margin-top: 16px; display: flex; gap: 8px;
+  /* Две колонки без grid-template-columns */
+  column-count: 2;
+  column-gap: 8px;
 }
-.palette-item {
-  padding: 4px 8px; border: 1px solid #333; cursor: grab;
+
+.ship-placeholder {
+  user-select: none;
+  cursor: grab;
+  background: transparent;
+  /* Не разрывать между колонками */
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  margin-bottom: 4px;
+  /* уменьшенный gap между рядами */
+}
+
+.adjacent-cell {
+  background-color: rgba(129, 128, 128, 0.036);
 }
 </style>

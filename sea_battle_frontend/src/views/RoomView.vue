@@ -24,121 +24,113 @@
         </div>
 
         <!-- Main area: Поле для расстановки кораблей -->
-
-        <BattleField>
-            
-        </BattleField>
-         
-        <!-- Поле с кораблями доступными-->
-
-            <!-- Кнопка готовности -->
-            <button 
-                class="ready-btn" 
-                :class="{ ready: isReady, 'not-ready': !isReady }" 
-                @click="toggleReady"
-            >
-                {{ isReady ? 'Готов' : 'Не готов' }}
-            </button>
+        <div class="main">
+            <BattleField :available-ships="availableShips" :ships="ships" :ready="isReady"
+                @place-ship="placeShipOnField" @remove-ship="toggleShip" />
         </div>
 
+        <!-- Кнопка готовности -->
+        <button class="ready-btn" :class="{ ready: isReady, 'not-ready': !isReady }" @click="toggleReady">
+            {{ isReady ? 'Готов' : 'Не готов' }}
+        </button>
+
         <!-- Footer: Кнопка начать игру если роль private -->
-        <div class="footer" >
+        <div class="footer">
             <button class="start-game-btn" @click="startGame">
                 Начать игру
             </button>
         </div>
+    </div>
 </template>
 
+
 <script setup>
+document.addEventListener('selectstart', e => {
+    // если перетаскиваем или находимся над .grid — блокируем
+    if (e.target.closest('.grid') || e.target.closest('.ship-placeholder')) {
+        e.preventDefault();
+    }
+});
 
 </script>
-
 <script>
 import BattleField from '@/components/BattleField.vue';
+
 export default {
     name: 'RoomView',
+    components: { BattleField },
     props: {
-        roomId: {
-            type: String,
-            required: true
-        }
-    },
-    components: {
-        BattleField
+        gameId: { type: String, required: true }
     },
     data() {
         return {
             participants: [],
             isReady: false,
-            privateuserRole: 'private',
-            ships: [],
+            ships: [],  // размещённые на поле
             availableShips: [
-                { id:1, name:'4×1', width:160, height:40 },
-                { id:2, name:'3×1', width:120, height:40 },
-                { id:3, name:'2×1', width:80,  height:40 },
-                { id:4, name:'1×1', width:40,  height:40 },],
+                { id: 1, name: '4×1', w: 4, h: 1 },
+                { id: 2, name: '3×1', w: 3, h: 1 },
+                { id: 3, name: '3×1', w: 3, h: 1 },
+                { id: 4, name: '2×1', w: 2, h: 1 },
+                { id: 5, name: '2×1', w: 2, h: 1 },
+                { id: 6, name: '2×1', w: 2, h: 1 },
+                { id: 7, name: '1×1', w: 1, h: 1 },
+                { id: 8, name: '1×1', w: 1, h: 1 },
+                { id: 9, name: '1×1', w: 1, h: 1 },
+                { id: 10, name: '1×1', w: 1, h: 1 },
+            ],
             ws: null,
-
-        }
-    },
-    mounted() {
-        this.ws = new WebSocket("http://localhost:8080/ws");
-
-        this.ws.onopen = () => {
-            console.log("WebSocket соединение установлено");
-            // При необходимости можно, например, отправить данные о подключении
-            this.ws.send(JSON.stringify({ roomId: this.roomId, action: "join" }));
         };
-
-        this.ws.onmessage = (event) => {
-            console.log("Получено сообщение:", event.data);
-            // Обработка сообщений от сервера
-        };
-
-        this.ws.onerror = error => {
-            console.error("Ошибка WebSocket:", error);
-        };
-
-        this.ws.onclose = () => {
-            console.log("WebSocket соединение закрыто");
-        };
-    },
-    beforeUnmount() {
-        if (this.ws) {
-            this.ws.close();
-        }
     },
     methods: {
         toggleReady() {
-            this.isReady = !this.isReady
+            if (this.availableShips.length > 0) {
+                alert('Сначала расставьте все корабли!');
+                return;
+            }
+            this.isReady = !this.isReady;
         },
         startGame() {
-            console.log('Игра начинается!')
-
-            this.$router.push({ name: 'inbattle', params: { roomId: this.roomId } })
+            this.$router.push({ name: 'inbattle', params: { gamemId: this.gameId } });
         },
-        handleFieldClick(event) {
-            console.log('Клик по полю', event)
-        },
-        placeShip(ship) {
-            const newShip = { ...ship, id: Date.now(), x: 10, y: 10 }
-            this.ships.push(newShip)
+        placeShipOnField({ ship, row, col, grabbedIndex }) {
+            // вычисляем координаты в пикселях (40px — размер клетки)
+            const x0 = col - grabbedIndex;
+            const y0 = row;
+            // собираем массив координат для Vue-реактивного хранения
+            const coords = [];
+            for (let i = 0; i < ship.w; i++) {
+                coords.push([x0 + i, y0]);
+            }
+            this.ships.push({
+                ...ship,
+                id: Date.now() + Math.random(), // уникальный
+                coords
+            });
+            // если нужно убрать из палитры:
+            this.availableShips = this.availableShips.filter(s => s.id !== ship.id);
         },
         toggleShip(ship) {
-            const index = this.ships.findIndex(s => s.id === ship.id)
-            if (index !== -1) {
-                this.ships.splice(index, 1)
-            }
-        },
-        placeShipOnField({ ship, row, col }) {
-    const x = col * 40, y = row * 40
-    this.ships.push({ ...ship, x, y })  // ship.length точно число
-  }
+            // удаляем с поля
+            this.ships = this.ships.filter(s => s.id !== ship.id);
+            // возвращаем в палитру
+            this.availableShips.push({
+                id: ship.id,
+                name: ship.name,
+                w: ship.coords.length,
+                h: 1
+            });
+        }
     }
-}
+};
 </script>
 
 <style scoped>
+.room-view,
+.battle-container {
+    user-select: none;
+}
+
 .container {
     display: flex;
     flex-direction: column;
@@ -150,18 +142,23 @@ export default {
     padding: 10px;
     margin-bottom: 20px;
 }
+
 .sidebar table {
     width: 100%;
     border-collapse: collapse;
 }
-.sidebar th, .sidebar td {
+
+.sidebar th,
+.sidebar td {
     border: 1px solid #ccc;
     padding: 5px;
     text-align: left;
 }
+
 .ready {
     color: green;
 }
+
 .not-ready {
     color: red;
 }
@@ -180,10 +177,12 @@ export default {
     border: none;
     cursor: pointer;
 }
+
 .ready-btn.ready {
     background-color: green;
     color: white;
 }
+
 .ready-btn.not-ready {
     background-color: red;
     color: white;
@@ -194,6 +193,7 @@ export default {
     text-align: center;
     margin-top: 20px;
 }
+
 .start-game-btn {
     padding: 10px 30px;
     font-size: 16px;

@@ -8,9 +8,9 @@ import ResultsView from '@/views/ResultsView.vue'
 const routes = [
   { path: '/',       name: 'home',      component: HomeView },
   { path: '/results',name: 'results',   component: ResultsView },
-  { path: '/room/:roomId',name: 'room',    component: RoomView,props: true },
+  { path: '/room/:gameId',name: 'room',    component: RoomView,props: true },
   { path: '/join',   name: 'join',    component: JoinRoomView},
-  { path: '/inbattle/:roomId',name: 'inbattle',component: InBattleView,props: true },
+  { path: '/inbattle/:gameId',name: 'inbattle',component: InBattleView,props: true },
 ]
 
 export const router = createRouter({

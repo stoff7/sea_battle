@@ -7,21 +7,19 @@
       <button @click="createRoom">Создать комнату</button>
     </div>
     <div class="user-input">
-      <input v-model="username"
-      @debounced-input="saveUsername" placeholder="Введите имя пользователя" />
+      <input v-model="username" @debounced-input="saveUsername" placeholder="Введите имя пользователя" />
     </div>
   </div>
 </template>
 
-<script setup>
-const delay = 400;
-</script>
 <script>
+import axios from 'axios';
 export default {
   name: "HomeView",
   data() {
     return {
-      roomId: null,
+      playerId: null,
+      gameId: null,
       username: '',
     };
   },
@@ -32,10 +30,18 @@ export default {
     }
   },
   methods: {
-    createRoom() {
-      this.roomId = Math.floor(Math.random() * 100000);
-      console.log("Комната создана c ID:", this.roomId);
-      this.$router.push({ name: 'room', params: { roomId: this.roomId } });
+    async createRoom() {
+      // const response = await axios.post('http://localhost:8077/api/v1/start_game', {
+      //   userName: this.username,
+      // });
+      // playerId = response.data.playerId;
+      // console.log("ID игрока:", playerId);
+      // gameId = response.data.gameId;
+      // console.log("ID игры:", gameId);
+
+      this.gameId = Math.floor(Math.random() * 100000);
+      console.log("Комната создана c ID:", this.gameId);
+      this.$router.push({ name: 'room', params: { playerId: this.playerId, gameId: this.gameId } });
     },
     saveUsername() {
       localStorage.setItem('username', this.username);
@@ -91,5 +97,4 @@ export default {
   outline: none;
   border-color: #66afe9;
 }
-
 </style>
