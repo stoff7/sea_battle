@@ -24,7 +24,8 @@ export default {
   name: "HomeView",
   data() {
     return {
-      playerId: 123,
+      api: 'https://' + import.meta.env.VITE_API + '/api/v1',
+      playerId: null,
       gameId: null,
       username: '',
       joinGameId: null,
@@ -38,18 +39,18 @@ export default {
   },
   methods: {
     async createRoom() {
-      // const response = await axios.post('http://localhost:8077/api/v1/start_game', {
-      //   userName: this.username,
-      // });
-      // playerId = response.data.playerId;
-      // console.log("ID игрока:", playerId);
-      // gameId = response.data.gameId;
-      // console.log("ID игры:", gameId);
-
-      this.gameId = Math.floor(Math.random() * 100000);
+      const response = await axios.post(this.api + '/start_game', {
+        userName: this.username,
+      });
+      console.log(response.data);
+      this.playerId = response.data.playerId;
+      localStorage.setItem('playerId', this.playerId);
+      console.log("ID игрока:", this.playerId);
+      this.gameId = response.data.gameId;
+      console.log("ID игры:", this.gameId);
       console.log("Комната создана c ID:", this.gameId);
       console.log("Это ID игрока:", this.playerId);
-      this.$router.push({ name: 'room', params: { playerId: this.playerId, gameId: this.gameId } });
+      this.$router.push({ name: 'room', params: { gameId: this.gameId } });
     },
     saveUsername() {
       localStorage.setItem('username', this.username);
@@ -61,12 +62,13 @@ export default {
         return;
       }
       this.gameId = this.joinGameId;
-      // const response = await axios.post(`http://localhost:8077/api/v1/join_game`, {
-      //   gameId: this.joinGameId,
-      //   userName: this.username
-      // });
-      // this.playerId = response.data.playerId;
-      // this.gameId = response.data.gameId;
+      const response = await axios.post(this.api + `/join_game`, {
+        gameId: this.joinGameId,
+        userName: this.username
+      });
+      this.playerId = response.data.playerId;
+      localStorage.setItem('playerId', this.playerId);
+      this.gameId = response.data.gameId;
       console.log("Присоединение к комнате c ID:", this.gameId);
       this.$router.push({ name: 'room', params: { playerId: this.playerId, gameId: this.gameId } });
     },

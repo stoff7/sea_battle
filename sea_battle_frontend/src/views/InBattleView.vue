@@ -41,6 +41,9 @@ export default {
     data() {
         return {
             participants: [],
+            gridSize: 10,
+            api: 'https://' + import.meta.env.VITE_API,
+            playerId: localStorage.getItem('playerId'),
             isReady: false,
             enemyHits: new Set(),
             enemyMisses: new Set(),
@@ -48,27 +51,17 @@ export default {
             gameStatus: null,
             attackCellColors: Array(100).fill('#fff'), // Цвета клеток для атаки
             attackBlocked: Array(100).fill(false), // Блокировка клеток для атаки
-        };
+            myShips: JSON.parse(localStorage.getItem('myShips')),
+        }
     },
     props: {
-        gameId: { type: String, required: true },
-        myShips: { type: Array, default: () => [] },
+        gameId: { type: String, required: true }
+    },
+    mounted() {
+        // const ships = JSON.parse(localStorage.getItem('myShips'));
+        // console.log(ships); // Получаем корабли из локального хранилища
     },
     methods: {
-        async toggleReady() {
-            if (this.myShips.length > 0) {
-                this.isReady = !this.isReady
-                // Отправляем готовность на сервер
-                this.ws.send(JSON.stringify({
-                    type: 'ready',
-                    playerId: this.playerId,
-                    gameId: this.gameId,
-                    ready: this.isReady
-                }))
-            } else {
-                alert("Пожалуйста, разместите корабли перед началом игры!")
-            }
-        },
         async attack(idx) {
             // 1. Не даём атаковать заблокированные клетки
             if (this.attackBlocked[idx]) return;
@@ -76,24 +69,31 @@ export default {
             // 2. Вычисляем координаты x, y
             const x = idx % this.gridSize;
             const y = Math.floor(idx / this.gridSize);
+            console.log(`Attack at (${x},${y})`);
 
             try {
                 // 3. Делаем PATCH-запрос на /api/v1/{gameId}/fight
-                const url = `http://localhost:8077/api/v1/${this.gameId}/fight`;
+                const url = this.api + '/api/v1/' + this.gameId + '/fight';
                 const payload = {
                     playerId: this.playerId,
                     coord: { x, y }
                 };
+                console.log(payload);
                 const response = await axios.patch(url, payload);
                 // axios.patch(url, data) — стандартный способ частичного обновления ресурса :contentReference[oaicite:0]{index=0}
 
                 // 4. Получаем данные из ответа
                 const { coord: newCoord, nextPlayerId, gameStatus, message, state } = response.data;
+                console.log('Response:', response.data);
 
                 // 5. Обновляем цвет клетки в зависимости от результата
                 //    Например, HIT — красим в красный, MISS — в серый
-                const color = state === 'HIT' ? '#e53935' : '#90a4ae';
-                this.$set(this.attackCellColors, idx, color);
+                if (state === 'HIT') {
+                    this.enemyHits.add(idx);
+                } else {
+                    this.enemyMisses.add(idx);
+                }
+
 
                 // 6. Показываем сообщение пользователю (кратко)
                 console.log(`Attack at (${x},${y}) → ${state}`);
@@ -165,13 +165,12 @@ export default {
 
 .enemy-cell.hit {
     background: #e53935;
-    color: #fff;
 }
 
 .enemy-cell.miss {
     background: #b0bec5;
-    color: #333;
 }
+
 
 .enemy-cell:hover:not(.hit):not(.miss) {
     background: #bbdefb;

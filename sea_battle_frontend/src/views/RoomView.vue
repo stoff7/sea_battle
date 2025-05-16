@@ -43,17 +43,34 @@ document.addEventListener('selectstart', e => {
 <script>
 import BattleField from '@/components/BattleField.vue';
 import axios from 'axios';
+import { wsService } from '@/wsService.js';
+import SockJS from 'sockjs-client'
+import { Stomp } from '@stomp/stompjs'
+import { Client } from '@stomp/stompjs';
 
 export default {
     name: 'RoomView',
     components: { BattleField },
     props: {
-        playerId: { type: Number, required: true },
         gameId: { type: String, required: true }
+    },
+    mounted() {
+        wsService.connect(this.api, this.gameId)
+
+        // 2) подписываемся на событие игры
+        wsService.subscribe(
+            `/topic/games/${this.gameId}`,
+            ({ body }) => this.handleGameEvent(JSON.parse(body))
+        )
     },
     data() {
         return {
+            api: import.meta.env.VITE_API,
+            stompClient: null,
             participants: [],
+            opponentId: null,
+            opponentReady: false,
+            playerId: localStorage.getItem('playerId'),
             isReady: false,
             ships: [],  // размещённые на поле
             availableShips: [
@@ -73,20 +90,60 @@ export default {
     },
     methods: {
         async toggleReady() {
+            console.log('playerId', this.playerId);
             if (this.availableShips.length > 0) {
                 alert('Сначала расставьте все корабли!');
                 return;
             }
-            // this.isReady = !this.isReady;
-            // const response = await axios.post(`http://localhost:8077/api/v1/${this.gameId}/ready_game`, {
-            //     playerId: this.gameId,
-            //     ready: this.isReady,
-            //     cells: this.convertShipsToCoordinates(this.ships)
-            // });
-            // if (response.data.gameStatus === 'ACTIVE') {
-            //     this.$router.push({ name: 'inbattle', params: { gameId: this.gameId, myShips: this.ships } });
-            // }
-            this.$router.push({ name: 'inbattle', params: { gameId: this.gameId }, query: { myShips: JSON.stringify(this.ships) } });
+            localStorage.setItem('myShips', JSON.stringify(this.ships));
+            this.isReady = !this.isReady;
+            console.log(this.playerId, this.isReady, this.ships);
+            const response = await axios.post('https://' + this.api + '/api/v1/' + this.gameId + '/ready_game', {
+                playerId: this.playerId,
+                ready: this.isReady,
+                cells: this.convertShipsToCoordinates(this.ships)
+            });
+            console.log(response.data)
+        },
+        handleGameEvent(event) {
+            console.log('Событие', event);
+            switch (event.type) {
+                case 'playerJoined':
+                    // пришёл второй игрок
+                    this.opponentId = event.playerId
+                    break
+
+                case 'playerReady':
+                    // обновляем статусы готовности
+                    // event.firstOwnerReady, event.secondOwnerReady
+                    if (event.firstOwnerReady === event.secondOwnerReady && event.gameStatus === 'ACTIVE') {
+                        this.$router.push({ name: 'inbattle', params: { gameId: this.gameId, myShips: this.ships } });
+                    }
+                    break
+
+                case 'gameStarted':
+                    this.$router.push({ name: 'inbattle', params: { gameId: this.gameId, myShips: this.ships } });
+                    break
+
+                case 'shotFired':
+                    // сохраняем выстрел, можно отрисовать на доске
+                    this.shots.push({
+                        x: event.x,
+                        y: event.y,
+                        result: event.result,
+                        by: event.by
+                    })
+                    // сохраняем чей ход следующий
+                    this.nextPlayerId = event.nextPlayerId
+                    break
+
+                case 'gameFinished':
+                    this.$router.push({ name: 'home' });
+                    break
+
+                default:
+                    console.warn('Неизвестный тип события', event.type)
+            }
         },
 
         convertShipsToCoordinates(ships) {
@@ -96,9 +153,6 @@ export default {
                 });
                 return accumulator;
             }, []);
-        },
-        startGame() {
-
         },
         placeShipOnField({ ship, row, col, grabbedIndex }) {
             // вычисляем координаты в пикселях (40px — размер клетки)
