@@ -175,4 +175,112 @@ export default {
 .enemy-cell:hover:not(.hit):not(.miss) {
     background: #bbdefb;
 }
+
+.battle-page {
+    background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%);
+    border-radius: 18px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    color: #e3f2fd;
+    font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+}
+
+h2 {
+    text-align: center;
+    letter-spacing: 2px;
+    font-size: 2.2em;
+    color: #90caf9;
+    text-shadow: 0 2px 8px #1976d2cc;
+    margin-bottom: 18px;
+}
+
+h3 {
+    color: #29b6f6;
+    text-shadow: 0 1px 4px #1565c0;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+}
+
+.fields {
+    background: rgba(33, 150, 243, 0.08);
+    border-radius: 12px;
+    padding: 24px 16px;
+    box-shadow: 0 2px 12px 0 rgba(33, 150, 243, 0.12);
+}
+
+.enemy-grid {
+    background: linear-gradient(135deg, #1976d2 60%, #64b5f6 100%);
+    border: 2px solid #1565c0;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px #1976d2aa;
+}
+
+.enemy-cell {
+    border: 1px solid #42a5f5;
+    background: rgba(255, 255, 255, 0.85);
+    transition: background 0.18s, box-shadow 0.18s;
+    box-shadow: 0 1px 2px #1976d222;
+    position: relative;
+}
+
+.enemy-cell.hit {
+    background: radial-gradient(circle, #e53935 60%, #b71c1c 100%);
+    color: #fff;
+    box-shadow: 0 0 8px #e53935cc;
+    animation: splash-hit 0.4s;
+}
+
+.enemy-cell.miss {
+    background: repeating-linear-gradient(135deg,
+            #b0bec5 0px,
+            #b0bec5 10px,
+            #cfd8dc 10px,
+            #cfd8dc 20px);
+    color: #607d8b;
+    animation: splash-miss 0.4s;
+}
+
+.enemy-cell:hover:not(.hit):not(.miss) {
+    background: linear-gradient(135deg, #81d4fa 60%, #29b6f6 100%);
+    box-shadow: 0 0 8px #29b6f6cc;
+}
+
+@keyframes splash-hit {
+    0% {
+        box-shadow: 0 0 0 #e5393500;
+    }
+
+    60% {
+        box-shadow: 0 0 24px #e53935cc;
+    }
+
+    100% {
+        box-shadow: 0 0 8px #e53935cc;
+    }
+}
+
+@keyframes splash-miss {
+    0% {
+        box-shadow: 0 0 0 #b0bec500;
+    }
+
+    60% {
+        box-shadow: 0 0 16px #b0bec5cc;
+    }
+
+    100% {
+        box-shadow: 0 0 4px #b0bec5cc;
+    }
+}
+
+/* Волны внизу страницы */
+.battle-page::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 48px;
+    background: url('https://svgshare.com/i/13r6.svg') repeat-x bottom;
+    background-size: contain;
+    margin-top: 32px;
+    opacity: 0.5;
+}
 </style>
