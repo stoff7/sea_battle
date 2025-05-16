@@ -5,9 +5,15 @@
     <p>Играйте против компьютера или с другом!</p>
     <div class="game-options">
       <button @click="createRoom">Создать комнату</button>
-    </div>
-    <div class="user-input">
-      <input v-model="username" @debounced-input="saveUsername" placeholder="Введите имя пользователя" />
+      <div style="margin-top: 20px;">
+        <p>Или присоединитесь по ID комнаты!</p>
+        <input v-model="this.joinGameId" placeholder="Введите ID комнаты"
+          style="padding: 10px; border: 1px solid #ccc; border-radius: 5px; width: 180px; margin-right: 10px;" />
+        <button @click="joinRoom">Присоединиться</button>
+      </div>
+      <div class="user-input">
+        <input v-model="username" @debounced-input="saveUsername" placeholder="Введите имя пользователя" />
+      </div>
     </div>
   </div>
 </template>
@@ -18,9 +24,10 @@ export default {
   name: "HomeView",
   data() {
     return {
-      playerId: null,
+      playerId: 123,
       gameId: null,
       username: '',
+      joinGameId: null,
     };
   },
   created() {
@@ -41,12 +48,28 @@ export default {
 
       this.gameId = Math.floor(Math.random() * 100000);
       console.log("Комната создана c ID:", this.gameId);
+      console.log("Это ID игрока:", this.playerId);
       this.$router.push({ name: 'room', params: { playerId: this.playerId, gameId: this.gameId } });
     },
     saveUsername() {
       localStorage.setItem('username', this.username);
       console.log("Имя пользователя сохранено:", this.username);
-    }
+    },
+    async joinRoom() {
+      if (!this.joinGameId) {
+        alert("Пожалуйста, введите ID комнаты!");
+        return;
+      }
+      this.gameId = this.joinGameId;
+      // const response = await axios.post(`http://localhost:8077/api/v1/join_game`, {
+      //   gameId: this.joinGameId,
+      //   userName: this.username
+      // });
+      // this.playerId = response.data.playerId;
+      // this.gameId = response.data.gameId;
+      console.log("Присоединение к комнате c ID:", this.gameId);
+      this.$router.push({ name: 'room', params: { playerId: this.playerId, gameId: this.gameId } });
+    },
   }
 };
 </script>
@@ -54,47 +77,124 @@ export default {
 <style scoped>
 .home {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 40px;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #f4f8fb;
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
+
+h1 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+
+p {
+  color: #555;
+  font-size: 1.1em;
 }
 
 .game-options {
   display: flex;
-  justify-content: space-between;
-  margin: 20px auto;
-  max-width: 400px;
+  flex-direction: column;
+  align-items: center;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(44, 62, 80, 0.08);
+  padding: 32px 24px;
+  margin: 32px auto 0 auto;
+  max-width: 420px;
+  gap: 24px;
 }
 
-.game-options p {
-  flex: 1;
-  text-align: center;
-  margin: 0 10px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+.game-options button {
+  background: #3498db;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 28px;
+  font-size: 1em;
+  font-weight: 600;
   cursor: pointer;
-  background-color: #f9f9f9;
-  transition: background-color 0.3s ease;
+  transition: background 0.2s;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.08);
 }
 
-.game-options p:hover {
-  background-color: #e0e0e0;
+.game-options button:hover {
+  background: #217dbb;
+}
+
+.game-options input {
+  padding: 10px;
+  border: 1px solid #bfc9d1;
+  border-radius: 6px;
+  width: 180px;
+  margin-right: 10px;
+  font-size: 1em;
+  transition: border-color 0.2s;
+}
+
+.game-options input:focus {
+  border-color: #3498db;
+  outline: none;
 }
 
 .user-input {
-  margin-top: 20px;
+  margin-top: 10px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .user-input input {
   padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+  border: 1px solid #bfc9d1;
+  border-radius: 6px;
   width: 250px;
-  margin-right: 10px;
-  transition: border-color 0.3s ease;
+  font-size: 1em;
+  transition: border-color 0.2s;
 }
 
 .user-input input:focus {
+  border-color: #3498db;
   outline: none;
-  border-color: #66afe9;
+}
+
+@media (max-width: 600px) {
+  .game-options {
+    padding: 18px 8px;
+    max-width: 98vw;
+  }
+
+  .user-input input,
+  .game-options input {
+    width: 98vw;
+    max-width: 98vw;
+  }
+}
+
+h1 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+  font-weight: 700;
+  font-size: 2.2em;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(44, 62, 80, 0.08);
+  background: linear-gradient(90deg, #3498db 0%, #6dd5fa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+h1+h1 {
+  font-size: 1.5em;
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-weight: 600;
+  color: #217dbb;
+  text-shadow: 0 1px 4px rgba(52, 152, 219, 0.10);
+  background: none;
+  -webkit-text-fill-color: initial;
 }
 </style>

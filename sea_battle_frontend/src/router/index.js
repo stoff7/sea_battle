@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import RoomView from '@/views/RoomView.vue'
-import JoinRoomView from '@/views/JoinRoomView.vue'
 import InBattleView from '@/views/InBattleView.vue'
 import ResultsView from '@/views/ResultsView.vue' 
 
@@ -9,8 +8,10 @@ const routes = [
   { path: '/',       name: 'home',      component: HomeView },
   { path: '/results',name: 'results',   component: ResultsView },
   { path: '/room/:gameId',name: 'room',    component: RoomView,props: true },
-  { path: '/join',   name: 'join',    component: JoinRoomView},
-  { path: '/inbattle/:gameId',name: 'inbattle',component: InBattleView,props: true },
+  { path: '/inbattle/:gameId',name: 'inbattle',component: InBattleView,props: route => ({
+    gameId: route.params.gameId,
+    myShips: JSON.parse(route.query.myShips || '[]')
+  }) },
 ]
 
 export const router = createRouter({
