@@ -13,10 +13,12 @@ import lombok.NoArgsConstructor;
  * @author Александра
  */
 @NoArgsConstructor 
+ 
 
 public class JoinGameResponse {
     private Long gameId; 
     private Long playerId; 
+ 
     private String message;
 
     public JoinGameResponse(Long gameId, Long playerId, String message) {

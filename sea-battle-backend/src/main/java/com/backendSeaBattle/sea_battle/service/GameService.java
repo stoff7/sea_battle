@@ -66,7 +66,8 @@ public class GameService {
         ws.convertAndSend(
                 "/topic/games/" + gameId,
                 Map.of("type", "playerJoined",
-                        "playerId", user.getUser_id())
+                        "playerId", user.getUser_id(),
+                        "userName", user.getUser_name())
         );
 
         return new JoinGameResult(game.getGame_id(), user.getUser_id());
@@ -92,7 +93,7 @@ public class GameService {
                     if (!cellService.findByGameAndOwnerAndXAndY(game, user, Cells.get(i).getX(), Cells.get(i).getY()).isPresent()) {
                         cellService.setCellIn(game, user, Cells.get(i).getX(), Cells.get(i).getY());
                     } else {
-                        throw new IllegalStateException("Координаты дублируются: X = " + Cells.get(i).getX() + "Y = " +  Cells.get(i).getY());
+                        throw new IllegalStateException("Координаты дублируются: X: " + Cells.get(i).getX() + " Y: " +  Cells.get(i).getY());
                     }
 
                 }

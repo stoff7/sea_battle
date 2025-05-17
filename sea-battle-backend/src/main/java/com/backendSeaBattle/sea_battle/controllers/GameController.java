@@ -15,7 +15,6 @@ import com.backendSeaBattle.sea_battle.controllers.dto.StartGameResponse;
 import com.backendSeaBattle.sea_battle.models.entity.Game;
 import com.backendSeaBattle.sea_battle.models.entity.User;
 import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
-import java.util.Map;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,10 +26,13 @@ import com.backendSeaBattle.sea_battle.service.CellService;
 import com.backendSeaBattle.sea_battle.service.UserService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
+import org.springframework.context.annotation.Configuration;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  *
@@ -127,6 +129,8 @@ public class GameController {
                     .body(new FightResponse(null, null, null, null, null, ex.getMessage()));
         }
     }
+    
+    
 
     // Request:
     // gameId

@@ -34,3 +34,4 @@ build/
 
 # игнорим конкретный файл с настройками
 /src/main/resources/application.properties
+/src/main/java/application.properties
