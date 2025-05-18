@@ -31,12 +31,14 @@
           </div>
         </div>
       </div>
+      <button @click="randomizeShips()" class="ship-placeholder" style="width: 100%; margin-top: 10px;">
+        Случайное размещение
+      </button>
     </div>
   </div>
 </template>
 
 <script>
-
 
 export default {
   name: 'BattleField',
@@ -260,7 +262,7 @@ export default {
 }
 
 .ship-cell {
-  background: #4caf50;
+  background: #4c9baf;
   color: white;
   border: 1px solid #333;
   box-sizing: border-box;
@@ -271,7 +273,7 @@ export default {
 }
 
 .ship-cell:hover {
-  background: #3e8e41;
+  background: #3e7a8e93;
 }
 
 .ship-placeholder {
@@ -303,5 +305,24 @@ export default {
 
 .adjacent-cell {
   background-color: rgba(129, 128, 128, 0.036);
+}
+
+button.ship-placeholder {
+  background: #307c8e;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 0;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 10px;
+  margin-left: 10px;
+  box-shadow: 0 2px 8px rgba(76, 155, 175, 0.08);
+}
+
+button.ship-placeholder:hover {
+  background: #21525f;
 }
 </style>

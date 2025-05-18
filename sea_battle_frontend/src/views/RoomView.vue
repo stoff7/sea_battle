@@ -1,5 +1,39 @@
 <template>
     <div class="room-view container">
+        <!-- Таблица с игроками в комнате -->
+        <div class="players-table">
+            <h3>Игроки в комнате:</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Имя игрока</th>
+                        <th>Готовность</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            {{ playerId ? username : '—' }}
+                        </td>
+                        <td>
+                            <span :style="{ color: isReady ? 'green' : 'red' }">
+                                {{ isReady ? 'Готов' : 'Не готов' }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr v-if="opponentId">
+                        <td>
+                            {{ opponentUsername }}
+                        </td>
+                        <td>
+                            <span :style="{ color: opponentReady ? 'green' : 'red' }">
+                                {{ opponentReady ? 'Готов' : 'Не готов' }}
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
         <!-- Room Number -->
         <div class="room-header">
             <h1>НОМЕР КОМНАТЫ: <span class="room-id">{{ gameId }}</span></h1>
@@ -15,18 +49,19 @@
             <BattleField :available-ships="availableShips" :ships="ships" :ready="isReady"
                 @place-ship="placeShipOnField" @remove-ship="toggleShip" />
         </div>
+        <div class="buttons-row">
+            <button class="clear-btn" @click="clearField">
+                Очистить поле
+            </button>
+            <button class="randomize-btn" @click="randomizeShips">
+                Расставить случайно
+            </button>
+        </div>
 
         <!-- Кнопка готовности -->
         <button class="ready-btn" :class="{ ready: isReady, 'not-ready': !isReady }" @click="toggleReady">
             {{ isReady ? 'Готов' : 'Не готов' }}
         </button>
-
-        <!-- Footer: Кнопка начать игру если роль private -->
-        <div class="footer">
-            <button class="start-game-btn" @click="startGame">
-                Начать игру
-            </button>
-        </div>
     </div>
 </template>
 
@@ -62,13 +97,19 @@ export default {
             `/topic/games/${this.gameId}`,
             ({ body }) => this.handleGameEvent(JSON.parse(body))
         )
+
+        if (this.ships = JSON.parse(localStorage.getItem('myShips'))) {
+            this.availableShips = []
+        }
     },
     data() {
         return {
             api: import.meta.env.VITE_API,
+            username: localStorage.getItem('username'),
+            gridSize: 10,
             stompClient: null,
-            participants: [],
-            opponentId: null,
+            opponentUsername: 'Sasha',
+            opponentId: 2,
             opponentReady: false,
             playerId: localStorage.getItem('playerId'),
             isReady: false,
@@ -89,6 +130,70 @@ export default {
         };
     },
     methods: {
+        randomizeShips() {
+            const directions = [
+                [1, 0], [-1, 0], [0, 1], [0, -1],
+                [1, 1], [-1, -1], [1, -1], [-1, 1]
+            ];
+            this.clearField();
+
+            const takenCoords = new Set();
+
+            for (let i = 0; i < 500 && this.availableShips.length > 0; i++) {
+                let done = true;
+                const randomX = Math.floor(Math.random() * (this.gridSize));
+                const randomY = Math.floor(Math.random() * (this.gridSize));
+                const randomShip = this.availableShips[Math.floor(Math.random() * this.availableShips.length)];
+                let newCoords = new Set();
+
+                for (let j = 0; j < randomShip.w; j++) {
+                    const key = [randomX + j, randomY].toString(); // "3,5"
+                    if (takenCoords.has(key) || randomX + j >= this.gridSize || randomY >= this.gridSize) {
+                        done = false;
+                        break;
+                    }
+                    newCoords.add([randomX + j, randomY]);
+                }
+
+
+
+                if (done) {
+                    console.log('Корабль', randomShip.name, 'размещён на поле в координатах', newCoords);
+                    newCoords.forEach(([x, y]) => {
+                        takenCoords.add([x, y].toString());
+                        directions.forEach(([dx, dy]) => {
+
+                            takenCoords.add([x + dx, y + dy].toString());
+                        });
+                    });
+
+                    this.placeShipOnField({
+                        ship: randomShip,
+                        row: Array.from(newCoords)[0][1],
+                        col: Array.from(newCoords)[0][0],
+                        grabbedIndex: 0
+                    });
+                }
+                else {
+                    console.log('Корабль', randomShip.name, 'не помещается на поле');
+                }
+            }
+        },
+        clearField() {
+            this.ships = [];
+            this.availableShips = [
+                { id: 1, name: '4×1', w: 4, h: 1 },
+                { id: 2, name: '3×1', w: 3, h: 1 },
+                { id: 3, name: '3×1', w: 3, h: 1 },
+                { id: 4, name: '2×1', w: 2, h: 1 },
+                { id: 5, name: '2×1', w: 2, h: 1 },
+                { id: 6, name: '2×1', w: 2, h: 1 },
+                { id: 7, name: '1×1', w: 1, h: 1 },
+                { id: 8, name: '1×1', w: 1, h: 1 },
+                { id: 9, name: '1×1', w: 1, h: 1 },
+                { id: 10, name: '1×1', w: 1, h: 1 },
+            ];
+        },
         async toggleReady() {
             console.log('playerId', this.playerId);
             if (this.availableShips.length > 0) {
@@ -98,12 +203,18 @@ export default {
             localStorage.setItem('myShips', JSON.stringify(this.ships));
             this.isReady = !this.isReady;
             console.log(this.playerId, this.isReady, this.ships);
-            const response = await axios.post('https://' + this.api + '/api/v1/' + this.gameId + '/ready_game', {
-                playerId: this.playerId,
-                ready: this.isReady,
-                cells: this.convertShipsToCoordinates(this.ships)
-            });
-            console.log(response.data)
+            try {
+                const response = await axios.post('https://' + this.api + '/api/v1/' + this.gameId + '/ready_game', {
+                    playerId: this.playerId,
+                    ready: this.isReady,
+                    cells: this.convertShipsToCoordinates(this.ships)
+                });
+                console.log(response.data)
+            }
+            catch (error) {
+                console.error('Ожидаем готовность другого игрока', error);
+                alert('Ожидаем готовность другого игрока');
+            }
         },
         handleGameEvent(event) {
             console.log('Событие', event);
@@ -111,11 +222,12 @@ export default {
                 case 'playerJoined':
                     // пришёл второй игрок
                     this.opponentId = event.playerId
+                    this.opponentUsername = event.username
                     break
 
                 case 'playerReady':
-                    // обновляем статусы готовности
-                    // event.firstOwnerReady, event.secondOwnerReady
+                    this.opponentReady = event.secondOwnerReady;
+                    this.isReady = event.firstOwnerReady;
                     if (event.firstOwnerReady === event.secondOwnerReady && event.gameStatus === 'ACTIVE') {
                         this.$router.push({ name: 'inbattle', params: { gameId: this.gameId, myShips: this.ships } });
                     }
@@ -288,5 +400,104 @@ export default {
 
 .start-game-btn:active {
     background-color: #0d47a1;
+}
+
+.players-table {
+    margin: 0 auto 24px auto;
+    max-width: 420px;
+    background: #f5faff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+    padding: 18px 24px;
+}
+
+.players-table h3 {
+    text-align: center;
+    color: #1976d2;
+    margin-bottom: 12px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.players-table table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(25, 118, 210, 0.08);
+}
+
+.players-table th,
+.players-table td {
+    padding: 12px 10px;
+    text-align: center;
+    font-size: 1.05rem;
+}
+
+.players-table th {
+    background: #e3f2fd;
+    color: #1976d2;
+    font-weight: 700;
+    border-bottom: 2px solid #90caf9;
+    letter-spacing: 1px;
+}
+
+.players-table tr {
+    transition: background 0.15s;
+}
+
+.players-table tbody tr:nth-child(even) {
+    background: #f0f7fa;
+}
+
+.players-table tbody tr:nth-child(odd) {
+    background: #ffffff;
+}
+
+.players-table td {
+    color: #333;
+    font-weight: 500;
+}
+
+.players-table span {
+    font-weight: 600;
+    font-size: 1.05em;
+    letter-spacing: 0.5px;
+}
+
+.players-table tr:hover {
+    background: #e3f2fd;
+}
+
+.buttons-row {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-bottom: 24px;
+    margin-top: 10px;
+}
+
+.buttons-row button {
+    padding: 10px 32px;
+    background-color: #fff;
+    color: #1976d2;
+    border: 2px solid #1976d2;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 1px 4px rgba(25, 118, 210, 0.08);
+    margin: 0;
+    min-width: 170px;
+}
+
+.buttons-row button:hover {
+    background-color: #1976d2;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
 }
 </style>

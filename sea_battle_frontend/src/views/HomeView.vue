@@ -39,14 +39,19 @@ export default {
   },
   methods: {
     async createRoom() {
-      const response = await axios.post(this.api + '/start_game', {
-        userName: this.username,
-      });
-      console.log(response.data);
-      this.playerId = response.data.playerId;
+      // const response = await axios.post(this.api + '/start_game', {
+      //   userName: this.username,
+      // });
+
+      this.playerId = 1;
+      this.gameId = 1;
+
+
+      //console.log(response.data);
+      // this.playerId = response.data.playerId;
       localStorage.setItem('playerId', this.playerId);
       console.log("ID игрока:", this.playerId);
-      this.gameId = response.data.gameId;
+      // this.gameId = response.data.gameId;
       console.log("ID игры:", this.gameId);
       console.log("Комната создана c ID:", this.gameId);
       console.log("Это ID игрока:", this.playerId);
