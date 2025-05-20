@@ -9,8 +9,9 @@
 
 
       <!-- Отрисовка уже размещённых кораблей -->
-      <div v-for="ship in ships" :key="ship.id" class="ship" :style="shipStyle(ship)" @dblclick="removeShip(ship)"
-        draggable="true" @pointerdown="onPointerDown($event)" @dragstart="onShipDragStart(ship, $event)">
+      <div v-for="ship in ships" :key="ship.id" class="ship" :class="{ vertical: isVertical }" :style="shipStyle(ship)"
+        @dblclick="removeShip(ship)" draggable="true" @pointerdown="onPointerDown($event)"
+        @dragstart="onShipDragStart(ship, $event); startListeningForRotate()" @dragend="stopListeningForRotate()">
         <div v-for="(coord, i) in ship.coords" :key="i" class="cell ship-cell" :data-index="i"
           :style="{ width: cellPx + 'px', height: cellPx + 'px' }">
           {{ ship.name }}
@@ -20,8 +21,9 @@
 
     <!-- Список доступных кораблей -->
     <div class="palette" style="display: grid-template-columns repeat(2, max-content);">
-      <div v-for="ship in availableShips" :key="ship.id" class="ship-placeholder" draggable="true"
-        @pointerdown="onPointerDown($event)" @dragstart="onDragStart(ship, $event)"
+      <div v-for="ship in availableShips" :key="ship.id" class="ship-placeholder" :class="{ vertical: isVertical }"
+        draggable="true" @pointerdown="onPointerDown($event)"
+        @dragstart="onDragStart(ship, $event); startListeningForRotate()" @dragend="stopListeningForRotate()"
         :style="{ width: ship.w * cellPx + 'px', height: ship.h * cellPx + 'px' }">
         <!-- Клеточная отрисовка плейсхолдера -->
         <div class="row" v-for="r in ship.h" :key="`r${r}`">
@@ -31,9 +33,6 @@
           </div>
         </div>
       </div>
-      <button @click="randomizeShips()" class="ship-placeholder" style="width: 100%; margin-top: 10px;">
-        Случайное размещение
-      </button>
     </div>
   </div>
 </template>
@@ -54,6 +53,7 @@ export default {
       dragged: null,
       grabbedIndex: 0,
       adjacentCells: new Set(),
+      isVertical: false,
     };
   },
   watch: {
@@ -66,9 +66,30 @@ export default {
       immediate: true, // сразу при монтировании
     }
   },
+
   methods: {
     removeShip(ship) {
       this.$emit('remove-ship', ship);
+    },
+    startListeningForRotate() {
+      // сбрасываем перед новым drag
+      console.log('startListeningForRotate');
+      this.isVertical = false;
+      window.addEventListener('keydown', this.onKeyDownRotate);
+    },
+    // Вызываем при окончании drag/drop
+    stopListeningForRotate() {
+      console.log('stopListeningForRotate');
+      window.removeEventListener('keydown', this.onKeyDownRotate);
+      this.isVertical = false;  // сброс ориентации
+    },
+    onKeyDownRotate(e) {
+      console.log('onKeyDownRotate', e.key);
+      if (e.key.toLowerCase() === 'r' && this.dragged) {
+        this.isVertical = !this.isVertical;
+        // обновляем подсветку соседних ячеек
+        this.updateAdjacentHighlight();
+      }
     },
 
     canPlaceAt(cellIndices, ignoreShipId = null) {
@@ -121,7 +142,9 @@ export default {
       const startY = row;
       const newCoords = [];
       for (let i = 0; i < ship.w; i++) {
-        newCoords.push([startX + i, startY]);
+        const x = this.isVertical ? startX : startX + i;
+        const y = this.isVertical ? startY + i : startY;
+        newCoords.push([x, y]);
       }
       //
       if (!this.boundCheck(newCoords, ship.id)) {
@@ -149,7 +172,11 @@ export default {
         // Генерим новые coords
         const newCoords = [];
         for (let i = 0; i < payload.ship.w; i++) {
-          newCoords.push([col - payload.grabbedIndex + i, row]);
+          const x0 = col - payload.grabbedIndex;
+          const y0 = row;
+          const x = this.isVertical ? x0 : x0 + i;
+          const y = this.isVertical ? y0 + i : y0;
+          newCoords.push([x, y]);
         }
         // Проверка, что каждая клетка внутри поля
         if (!this.boundCheck(newCoords, null)) {
@@ -307,22 +334,10 @@ export default {
   background-color: rgba(129, 128, 128, 0.036);
 }
 
-button.ship-placeholder {
-  background: #307c8e;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 10px 0;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background 0.2s;
-  margin-top: 10px;
-  margin-left: 10px;
-  box-shadow: 0 2px 8px rgba(76, 155, 175, 0.08);
-}
-
-button.ship-placeholder:hover {
-  background: #21525f;
+.ship.vertical,
+.ship-placeholder.vertical {
+  transform-origin: top left;
+  /* чтобы поворот шел от “носа” */
+  transform: rotate(90deg);
 }
 </style>

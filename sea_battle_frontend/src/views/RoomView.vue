@@ -1,6 +1,11 @@
 <template>
     <div class="room-view container">
         <!-- Таблица с игроками в комнате -->
+        <div>
+            <button class="disconnect-btn" @click="disconnect">
+                Выйти
+            </button>
+        </div>
         <div class="players-table">
             <h3>Игроки в комнате:</h3>
             <table>
@@ -79,9 +84,8 @@ document.addEventListener('selectstart', e => {
 import BattleField from '@/components/BattleField.vue';
 import axios from 'axios';
 import { wsService } from '@/wsService.js';
-import SockJS from 'sockjs-client'
-import { Stomp } from '@stomp/stompjs'
-import { Client } from '@stomp/stompjs';
+import { useUsersStore } from '@/stores/users';
+import { use } from 'chai';
 
 export default {
     name: 'RoomView',
@@ -98,21 +102,26 @@ export default {
             ({ body }) => this.handleGameEvent(JSON.parse(body))
         )
 
-        if (this.ships = JSON.parse(localStorage.getItem('myShips'))) {
-            this.availableShips = []
+        const savedShips = JSON.parse(localStorage.getItem('myShips'));
+        if (savedShips) {
+            this.ships = savedShips;
+            this.availableShips = [];
         }
+
     },
     data() {
+        const userStorage = useUsersStore();
         return {
             api: import.meta.env.VITE_API,
-            username: localStorage.getItem('username'),
+            username: userStorage.username,
             gridSize: 10,
             stompClient: null,
-            opponentUsername: 'Sasha',
-            opponentId: 2,
+            opponentUsername: userStorage.opponentUsername,
+            opponentId: userStorage.opponentId,
             opponentReady: false,
-            playerId: localStorage.getItem('playerId'),
+            playerId: userStorage.playerId,
             isReady: false,
+            role: userStorage.role,
             ships: [],  // размещённые на поле
             availableShips: [
                 { id: 1, name: '4×1', w: 4, h: 1 },
@@ -127,9 +136,13 @@ export default {
                 { id: 10, name: '1×1', w: 1, h: 1 },
             ],
             ws: null,
+            userStorage: userStorage,
         };
     },
     methods: {
+        disconnect() {
+            console.log('userStorage', this.userStorage);
+        },
         randomizeShips() {
             const directions = [
                 [1, 0], [-1, 0], [0, 1], [0, -1],
@@ -158,7 +171,6 @@ export default {
 
 
                 if (done) {
-                    console.log('Корабль', randomShip.name, 'размещён на поле в координатах', newCoords);
                     newCoords.forEach(([x, y]) => {
                         takenCoords.add([x, y].toString());
                         directions.forEach(([dx, dy]) => {
@@ -173,9 +185,6 @@ export default {
                         col: Array.from(newCoords)[0][0],
                         grabbedIndex: 0
                     });
-                }
-                else {
-                    console.log('Корабль', randomShip.name, 'не помещается на поле');
                 }
             }
         },
@@ -220,14 +229,19 @@ export default {
             console.log('Событие', event);
             switch (event.type) {
                 case 'playerJoined':
-                    // пришёл второй игрок
-                    this.opponentId = event.playerId
-                    this.opponentUsername = event.username
+                    if (this.role === 'host') {
+                        this.opponentId = event.playerId
+                        this.opponentUsername = event.userName
+                    }
                     break
 
                 case 'playerReady':
-                    this.opponentReady = event.secondOwnerReady;
-                    this.isReady = event.firstOwnerReady;
+                    if (this.role === 'host') {
+                        this.opponentReady = event.secondOwnerReady;
+                    }
+                    else {
+                        this.opponentReady = event.firstOwnerReady;
+                    }
                     if (event.firstOwnerReady === event.secondOwnerReady && event.gameStatus === 'ACTIVE') {
                         this.$router.push({ name: 'inbattle', params: { gameId: this.gameId, myShips: this.ships } });
                     }
@@ -499,5 +513,24 @@ export default {
     background-color: #1976d2;
     color: #fff;
     box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
+}
+
+.disconnect-btn {
+    padding: 10px 28px;
+    background-color: #e53935;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 8px rgba(229, 57, 53, 0.10);
+    margin-bottom: 18px;
+}
+
+.disconnect-btn:hover {
+    background-color: #b71c1c;
+    box-shadow: 0 4px 16px rgba(229, 57, 53, 0.18);
 }
 </style>

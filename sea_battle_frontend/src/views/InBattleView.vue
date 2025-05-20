@@ -29,6 +29,10 @@
 import { useRoute } from 'vue-router'
 import BattleField from '@/components/BattleField.vue'
 import axios from 'axios'
+import { wsService } from '@/wsService.js';
+import SockJS from 'sockjs-client'
+import { Stomp } from '@stomp/stompjs'
+import { Client } from '@stomp/stompjs';
 
 // Получаем корабли из параметров маршрута или моковые
 const route = useRoute()
@@ -58,10 +62,32 @@ export default {
         gameId: { type: String, required: true }
     },
     mounted() {
-        // const ships = JSON.parse(localStorage.getItem('myShips'));
-        // console.log(ships); // Получаем корабли из локального хранилища
+        wsService.connect(this.api, this.gameId)
+
+        // 2) подписываемся на событие игры
+        wsService.subscribe(
+            `/topic/games/${this.gameId}`,
+            ({ body }) => this.handleGameEvent(JSON.parse(body))
+        )
+    },
+    unmounted() {
+        // 3) отключаемся от веб-сокета
+        wsService.disconnect()
     },
     methods: {
+        handleGameEvent(event) {
+            console.log('Game event:', event);
+            switch (event.type) {
+                case 'gameFinished':
+                    console.log('Game finished:', event);
+                    break;
+                case 'shotFired':
+                    console.log('Shot fired:', event);
+                    break;
+                default:
+                    console.warn('Unknown event type:', event.type);
+            }
+        },
         async attack(idx) {
             // 1. Не даём атаковать заблокированные клетки
             if (this.attackBlocked[idx]) return;

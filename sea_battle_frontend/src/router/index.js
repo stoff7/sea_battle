@@ -9,8 +9,7 @@ const routes = [
   { path: '/results',name: 'results',   component: ResultsView },
   { path: '/room/:gameId',name: 'room',    component: RoomView,props: true },
   { path: '/inbattle/:gameId',name: 'inbattle',component: InBattleView,props: route => ({
-    gameId: route.params.gameId,
-    myShips: JSON.parse(route.query.myShips || '[]')
+    gameId: route.params.gameId
   }) },
 ]
 
