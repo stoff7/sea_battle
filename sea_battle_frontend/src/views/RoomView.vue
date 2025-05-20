@@ -52,7 +52,7 @@
         <!-- Main area: Поле для расстановки кораблей -->
         <div class="main">
             <BattleField :available-ships="availableShips" :ships="ships" :ready="isReady"
-                @place-ship="placeShipOnField" @remove-ship="toggleShip" />
+                @place-ship="placeShipOnField" @remove-ship="toggleShip" @rotate-ship="onRotateShip" />
         </div>
         <div class="buttons-row">
             <button class="clear-btn" @click="clearField">
@@ -124,16 +124,16 @@ export default {
             role: userStorage.role,
             ships: [],  // размещённые на поле
             availableShips: [
-                { id: 1, name: '4×1', w: 4, h: 1 },
-                { id: 2, name: '3×1', w: 3, h: 1 },
-                { id: 3, name: '3×1', w: 3, h: 1 },
-                { id: 4, name: '2×1', w: 2, h: 1 },
-                { id: 5, name: '2×1', w: 2, h: 1 },
-                { id: 6, name: '2×1', w: 2, h: 1 },
-                { id: 7, name: '1×1', w: 1, h: 1 },
-                { id: 8, name: '1×1', w: 1, h: 1 },
-                { id: 9, name: '1×1', w: 1, h: 1 },
-                { id: 10, name: '1×1', w: 1, h: 1 },
+                { id: 1, name: '4×1', w: 4, h: 1, direction: 'horizontal' },
+                { id: 2, name: '3×1', w: 3, h: 1, direction: 'horizontal' },
+                { id: 3, name: '3×1', w: 3, h: 1, direction: 'horizontal' },
+                { id: 4, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
+                { id: 5, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
+                { id: 6, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
+                { id: 7, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
+                { id: 8, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
+                { id: 9, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
+                { id: 10, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
             ],
             ws: null,
             userStorage: userStorage,
@@ -142,6 +142,12 @@ export default {
     methods: {
         disconnect() {
             console.log('userStorage', this.userStorage);
+        },
+        onRotateShip(updatedShip) {
+            this.ships = this.ships.map(ship =>
+                ship.id === updatedShip.id ? updatedShip : ship
+            );
+            console.log('Повернули корабль', updatedShip);
         },
         randomizeShips() {
             const directions = [
@@ -152,35 +158,56 @@ export default {
 
             const takenCoords = new Set();
 
-            for (let i = 0; i < 500 && this.availableShips.length > 0; i++) {
+            for (let o = 0; o < 150 && this.availableShips.length > 0; o++) {
                 let done = true;
                 const randomX = Math.floor(Math.random() * (this.gridSize));
                 const randomY = Math.floor(Math.random() * (this.gridSize));
                 const randomShip = this.availableShips[Math.floor(Math.random() * this.availableShips.length)];
+                let w = randomShip.w;
+                let h = randomShip.h;
+                // случайное направление
+                const direction = Math.random() > 0.5 ? 'horizontal' : 'vertical';
                 let newCoords = new Set();
 
-                for (let j = 0; j < randomShip.w; j++) {
-                    const key = [randomX + j, randomY].toString(); // "3,5"
-                    if (takenCoords.has(key) || randomX + j >= this.gridSize || randomY >= this.gridSize) {
-                        done = false;
-                        break;
+                if (direction === 'horizontal') {
+                    console.log(randomShip);
+                    randomShip.direction = 'horizontal';
+                    for (let j = 0; j < randomShip.w; j++) {
+                        const key = [randomX + j, randomY].toString();
+                        if (takenCoords.has(key) || randomX + j >= this.gridSize || randomY >= this.gridSize) {
+                            done = false;
+                            break;
+                        }
+                        newCoords.add([randomX + j, randomY]);
                     }
-                    newCoords.add([randomX + j, randomY]);
+                } else {
+                    console.log(randomShip);
+                    randomShip.direction = 'vertical';
+                    [w, h] = [h, w];
+                    for (let j = 0; j < randomShip.w; j++) {
+                        const key = [randomX, randomY + j].toString();
+                        if (takenCoords.has(key) || randomX >= this.gridSize || randomY + j >= this.gridSize) {
+                            done = false;
+                            break;
+                        }
+                        newCoords.add([randomX, randomY + j]);
+                    }
+
                 }
 
-
-
                 if (done) {
+                    randomShip.direction = direction;
+                    randomShip.w = w;
+                    randomShip.h = h;
                     newCoords.forEach(([x, y]) => {
                         takenCoords.add([x, y].toString());
                         directions.forEach(([dx, dy]) => {
-
                             takenCoords.add([x + dx, y + dy].toString());
                         });
                     });
-
+                    console.log('Корабль', randomShip, 'направление', direction, 'координаты', Array.from(newCoords));
                     this.placeShipOnField({
-                        ship: randomShip,
+                        ship: { ...randomShip, direction },
                         row: Array.from(newCoords)[0][1],
                         col: Array.from(newCoords)[0][0],
                         grabbedIndex: 0
@@ -191,16 +218,16 @@ export default {
         clearField() {
             this.ships = [];
             this.availableShips = [
-                { id: 1, name: '4×1', w: 4, h: 1 },
-                { id: 2, name: '3×1', w: 3, h: 1 },
-                { id: 3, name: '3×1', w: 3, h: 1 },
-                { id: 4, name: '2×1', w: 2, h: 1 },
-                { id: 5, name: '2×1', w: 2, h: 1 },
-                { id: 6, name: '2×1', w: 2, h: 1 },
-                { id: 7, name: '1×1', w: 1, h: 1 },
-                { id: 8, name: '1×1', w: 1, h: 1 },
-                { id: 9, name: '1×1', w: 1, h: 1 },
-                { id: 10, name: '1×1', w: 1, h: 1 },
+                { id: 1, name: '4×1', w: 4, h: 1, direction: 'horizontal' },
+                { id: 2, name: '3×1', w: 3, h: 1, direction: 'horizontal' },
+                { id: 3, name: '3×1', w: 3, h: 1, direction: 'horizontal' },
+                { id: 4, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
+                { id: 5, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
+                { id: 6, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
+                { id: 7, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
+                { id: 8, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
+                { id: 9, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
+                { id: 10, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
             ];
         },
         async toggleReady() {
@@ -286,8 +313,14 @@ export default {
             const y0 = row;
             // собираем массив координат для Vue-реактивного хранения
             const coords = [];
-            for (let i = 0; i < ship.w; i++) {
-                coords.push([x0 + i, y0]);
+            if (ship.direction === 'horizontal') {
+                for (let i = 0; i < ship.w; i++) {
+                    coords.push([x0 + i, y0]);
+                }
+            } else {
+                for (let i = 0; i < ship.h; i++) {
+                    coords.push([x0, y0 + i]);
+                }
             }
             this.ships.push({
                 ...ship,
@@ -304,8 +337,9 @@ export default {
             this.availableShips.push({
                 id: ship.id,
                 name: ship.name,
-                w: ship.coords.length,
-                h: 1
+                w: ship.direction === 'horizontal' ? ship.w : ship.h,
+                h: ship.direction === 'horizontal' ? ship.h : ship.w,
+                direction: 'horizontal'
             });
         }
     }

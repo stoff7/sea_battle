@@ -9,11 +9,16 @@
 
 
       <!-- Отрисовка уже размещённых кораблей -->
-      <div v-for="ship in ships" :key="ship.id" class="ship" :class="{ vertical: isVertical }" :style="shipStyle(ship)"
-        @dblclick="removeShip(ship)" draggable="true" @pointerdown="onPointerDown($event)"
-        @dragstart="onShipDragStart(ship, $event); startListeningForRotate()" @dragend="stopListeningForRotate()">
-        <div v-for="(coord, i) in ship.coords" :key="i" class="cell ship-cell" :data-index="i"
-          :style="{ width: cellPx + 'px', height: cellPx + 'px' }">
+      <div v-for="ship in ships" :key="ship.id" class="ship" :style="shipStyle(ship)" @dblclick="removeShip(ship)"
+        @click="rotateShip(ship)" draggable="true" @pointerdown="onPointerDown($event)"
+        @dragstart="onShipDragStart(ship, $event)">
+        <div v-for="(coord, i) in ship.coords" :key="i" class="cell ship-cell" :data-index="i" :style="{
+          width: cellPx + 'px',
+          height: cellPx + 'px',
+          position: 'absolute',
+          top: (coord[1] - ship.coords[0][1]) * cellPx + 'px',
+          left: (coord[0] - ship.coords[0][0]) * cellPx + 'px'
+        }">
           {{ ship.name }}
         </div>
       </div>
@@ -21,9 +26,8 @@
 
     <!-- Список доступных кораблей -->
     <div class="palette" style="display: grid-template-columns repeat(2, max-content);">
-      <div v-for="ship in availableShips" :key="ship.id" class="ship-placeholder" :class="{ vertical: isVertical }"
-        draggable="true" @pointerdown="onPointerDown($event)"
-        @dragstart="onDragStart(ship, $event); startListeningForRotate()" @dragend="stopListeningForRotate()"
+      <div v-for="ship in availableShips" :key="ship.id" class="ship-placeholder" draggable="true"
+        @pointerdown="onPointerDown($event)" @dragstart="onDragStart(ship, $event)"
         :style="{ width: ship.w * cellPx + 'px', height: ship.h * cellPx + 'px' }">
         <!-- Клеточная отрисовка плейсхолдера -->
         <div class="row" v-for="r in ship.h" :key="`r${r}`">
@@ -53,7 +57,6 @@ export default {
       dragged: null,
       grabbedIndex: 0,
       adjacentCells: new Set(),
-      isVertical: false,
     };
   },
   watch: {
@@ -71,25 +74,84 @@ export default {
     removeShip(ship) {
       this.$emit('remove-ship', ship);
     },
-    startListeningForRotate() {
-      // сбрасываем перед новым drag
-      console.log('startListeningForRotate');
-      this.isVertical = false;
-      window.addEventListener('keydown', this.onKeyDownRotate);
-    },
-    // Вызываем при окончании drag/drop
-    stopListeningForRotate() {
-      console.log('stopListeningForRotate');
-      window.removeEventListener('keydown', this.onKeyDownRotate);
-      this.isVertical = false;  // сброс ориентации
-    },
-    onKeyDownRotate(e) {
-      console.log('onKeyDownRotate', e.key);
-      if (e.key.toLowerCase() === 'r' && this.dragged) {
-        this.isVertical = !this.isVertical;
-        // обновляем подсветку соседних ячеек
-        this.updateAdjacentHighlight();
+    rotateShip(ship) {
+      const grabbedIndex = this.grabbedIndex ?? 0;
+      const length = ship.coords.length;
+      const [cx, cy] = ship.coords[grabbedIndex];
+
+      // +90°
+      let newDirection = ship.direction === 'horizontal' ? 'vertical' : 'horizontal';
+      let newCoords = [];
+      if (newDirection === 'horizontal') {
+        for (let i = 0; i < length; i++) {
+          newCoords.push([cx - grabbedIndex + i, cy]);
+        }
+      } else {
+        for (let i = 0; i < length; i++) {
+          newCoords.push([cx, cy - grabbedIndex + i]);
+        }
       }
+      if (this.boundCheck(newCoords, ship.id)) {
+        this.$emit('rotate-ship', {
+          ...ship,
+          direction: newDirection,
+          w: newDirection === 'horizontal' ? length : 1,
+          h: newDirection === 'vertical' ? length : 1,
+          coords: newCoords
+        });
+        this.updateAdjacentHighlight();
+        return;
+      }
+
+      // -90°
+      newCoords = [];
+      if (newDirection === 'horizontal') {
+        for (let i = 0; i < length; i++) {
+          newCoords.push([cx - grabbedIndex + (length - 1 - i), cy]);
+        }
+      } else {
+        for (let i = 0; i < length; i++) {
+          newCoords.push([cx, cy - grabbedIndex + (length - 1 - i)]);
+        }
+      }
+      if (this.boundCheck(newCoords, ship.id)) {
+        this.$emit('rotate-ship', {
+          ...ship,
+          direction: newDirection,
+          w: newDirection === 'horizontal' ? length : 1,
+          h: newDirection === 'vertical' ? length : 1,
+          coords: newCoords
+        });
+        this.updateAdjacentHighlight();
+        return;
+      }
+
+      // 180°
+      newDirection = ship.direction;
+      newCoords = [];
+      if (newDirection === 'horizontal') {
+        for (let i = 0; i < length; i++) {
+          newCoords.push([cx - grabbedIndex + (length - 1 - i), cy]);
+        }
+      } else {
+        for (let i = 0; i < length; i++) {
+          newCoords.push([cx, cy - grabbedIndex + (length - 1 - i)]);
+        }
+      }
+      if (this.boundCheck(newCoords, ship.id)) {
+        this.$emit('rotate-ship', {
+          ...ship,
+          direction: newDirection,
+          w: newDirection === 'horizontal' ? length : 1,
+          h: newDirection === 'vertical' ? length : 1,
+          coords: newCoords
+        });
+        this.updateAdjacentHighlight();
+        return;
+      }
+
+      // Если ни один вариант не подошёл
+      console.warn('Поворот невозможен для корабля', ship);
     },
 
     canPlaceAt(cellIndices, ignoreShipId = null) {
@@ -138,15 +200,20 @@ export default {
       this.updateAdjacentHighlight();
     },
     moveShip(ship, row, col, grabbedIndex) {
-      const startX = col - grabbedIndex;
-      const startY = row;
-      const newCoords = [];
-      for (let i = 0; i < ship.w; i++) {
-        const x = this.isVertical ? startX : startX + i;
-        const y = this.isVertical ? startY + i : startY;
-        newCoords.push([x, y]);
+      let newCoords = [];
+      if (ship.direction === 'horizontal') {
+        const startX = col - grabbedIndex;
+        const startY = row;
+        for (let i = 0; i < ship.w; i++) {
+          newCoords.push([startX + i, startY]);
+        }
+      } else {
+        const startX = col;
+        const startY = row - grabbedIndex;
+        for (let i = 0; i < ship.h; i++) {
+          newCoords.push([startX, startY + i]);
+        }
       }
-      //
       if (!this.boundCheck(newCoords, ship.id)) {
         return;
       }
@@ -169,21 +236,21 @@ export default {
       if (existing) {
         this.moveShip(existing, row, col, payload.grabbedIndex);
       } else {
-        // Генерим новые coords
-        const newCoords = [];
-        for (let i = 0; i < payload.ship.w; i++) {
-          const x0 = col - payload.grabbedIndex;
-          const y0 = row;
-          const x = this.isVertical ? x0 : x0 + i;
-          const y = this.isVertical ? y0 + i : y0;
-          newCoords.push([x, y]);
+        // Определяем длину корабля
+        const length = Math.max(payload.ship.w, payload.ship.h);
+        let newCoords = [];
+        if (payload.ship.direction === 'horizontal') {
+          for (let i = 0; i < length; i++) {
+            newCoords.push([col - payload.grabbedIndex + i, row]);
+          }
+        } else {
+          for (let i = 0; i < length; i++) {
+            newCoords.push([col, row - payload.grabbedIndex + i]);
+          }
         }
-        // Проверка, что каждая клетка внутри поля
         if (!this.boundCheck(newCoords, null)) {
           return;
         }
-
-        // Если всё ок — эмитим создание
         this.$emit('place-ship', {
           ship: payload.ship,
           row, col,
@@ -191,7 +258,6 @@ export default {
         });
         this.updateAdjacentHighlight();
       }
-
       this.resetDragState();
     },
     shipStyle(ship) {
@@ -286,6 +352,7 @@ export default {
 
 .ship {
   cursor: grab;
+  position: absolute;
 }
 
 .ship-cell {
@@ -332,12 +399,5 @@ export default {
 
 .adjacent-cell {
   background-color: rgba(129, 128, 128, 0.036);
-}
-
-.ship.vertical,
-.ship-placeholder.vertical {
-  transform-origin: top left;
-  /* чтобы поворот шел от “носа” */
-  transform: rotate(90deg);
 }
 </style>
