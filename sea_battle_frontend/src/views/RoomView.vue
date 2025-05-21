@@ -85,7 +85,6 @@ import BattleField from '@/components/BattleField.vue';
 import axios from 'axios';
 import { wsService } from '@/wsService.js';
 import { useUsersStore } from '@/stores/users';
-import { use } from 'chai';
 
 export default {
     name: 'RoomView',
@@ -109,6 +108,9 @@ export default {
         }
 
     },
+    unmounted() {
+        this.disconnect();
+    },
     data() {
         const userStorage = useUsersStore();
         return {
@@ -116,7 +118,7 @@ export default {
             username: userStorage.username,
             gridSize: 10,
             stompClient: null,
-            opponentUsername: userStorage.opponentUsername,
+            opponentUsername: userStorage.opponentName,
             opponentId: userStorage.opponentId,
             opponentReady: false,
             playerId: userStorage.playerId,
@@ -141,7 +143,12 @@ export default {
     },
     methods: {
         disconnect() {
-            console.log('userStorage', this.userStorage);
+            // const response = axios.post('https://' + this.api + '/api/v1/' + '/leave_game', {
+            //     playerId: this.playerId,
+            //     gameId: this.gameId
+            // });
+            // this.$router.push({ name: 'home' });
+            wsService.disconnect();
         },
         onRotateShip(updatedShip) {
             this.ships = this.ships.map(ship =>
@@ -275,7 +282,7 @@ export default {
                     break
 
                 case 'gameStarted':
-                    this.$router.push({ name: 'inbattle', params: { gameId: this.gameId, myShips: this.ships } });
+                    this.$router.push({ name: 'inbattle', params: { gameId: this.gameId } });
                     break
 
                 case 'shotFired':

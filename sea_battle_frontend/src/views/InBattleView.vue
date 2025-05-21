@@ -5,18 +5,19 @@
             <!-- Мое поле -->
             <div>
                 <h3>Мое поле</h3>
-                <BattleField :available-ships="[]" :ships="myShips" :ready="true" />
+                <BattleField :available-ships="[]" :ships="myShips" :ready="true" :hits="inBattleStore.hits"
+                    :misses="inBattleStore.misses" />
             </div>
             <!-- Поле противника -->
             <div>
                 <h3>Поле противника</h3>
                 <div class="enemy-grid">
                     <div v-for="idx in 100" :key="idx" class="enemy-cell" :class="{
-                        hit: enemyHits.has(idx - 1),
-                        miss: enemyMisses.has(idx - 1)
+                        hit: enemyHits.includes(idx - 1),
+                        miss: enemyMisses.includes(idx - 1)
                     }" @click="attack(idx - 1)">
-                        <span v-if="enemyHits.has(idx - 1)">✸</span>
-                        <span v-else-if="enemyMisses.has(idx - 1)">•</span>
+                        <span v-if="enemyHits.includes(idx - 1)">✸</span>
+                        <span v-else-if="enemyMisses.includes(idx - 1)">•</span>
                     </div>
                 </div>
             </div>
@@ -24,8 +25,7 @@
     </div>
 </template>
 
-<script setup>
-
+<script>
 import { useRoute } from 'vue-router'
 import BattleField from '@/components/BattleField.vue'
 import axios from 'axios'
@@ -33,29 +33,34 @@ import { wsService } from '@/wsService.js';
 import SockJS from 'sockjs-client'
 import { Stomp } from '@stomp/stompjs'
 import { Client } from '@stomp/stompjs';
+import { useUsersStore } from '@/stores/users';
+import { useInBattleStore } from '@/stores/inbattle';
 
 // Получаем корабли из параметров маршрута или моковые
 const route = useRoute()
-</script>
-
-<script>
 export default {
     name: 'InbattleView',
     components: { BattleField },
     data() {
+        const userStorage = useUsersStore();
+        const inBattleStore = useInBattleStore();
         return {
-            participants: [],
             gridSize: 10,
-            api: 'https://' + import.meta.env.VITE_API,
-            playerId: localStorage.getItem('playerId'),
-            isReady: false,
-            enemyHits: new Set(),
-            enemyMisses: new Set(),
+            api: import.meta.env.VITE_API,
+            username: userStorage.username,
+            playerId: userStorage.playerId,
+            opponentId: userStorage.opponentId,
+            opponentName: userStorage.opponentName,
+            enemyHits: [],
+            enemyMisses: [],
             nextPlayerId: null,
             gameStatus: null,
             attackCellColors: Array(100).fill('#fff'), // Цвета клеток для атаки
             attackBlocked: Array(100).fill(false), // Блокировка клеток для атаки
             myShips: JSON.parse(localStorage.getItem('myShips')),
+            userStorage: userStorage,
+            inBattleStore: inBattleStore,
+
         }
     },
     props: {
@@ -81,9 +86,27 @@ export default {
                 case 'gameFinished':
                     console.log('Game finished:', event);
                     break;
-                case 'shotFired':
+                case 'shotFired': {
+                    const idx = event.y * this.gridSize + event.x;
                     console.log('Shot fired:', event);
+                    console.log('Shot fired at index:', idx);
+                    if (event.by !== this.playerId) {
+                        // Соперник стреляет по твоему полю
+                        if (event.result === 'HIT') {
+                            console.log('Hit detected:', event);
+                            if (!this.inBattleStore.hits.includes(idx)) {
+                                this.inBattleStore.hits.push(idx);
+                                console.log('Hit added:', idx);
+                            }
+                        } else if (event.result === 'MISS') {
+                            if (!this.inBattleStore.misses.includes(idx)) {
+                                this.inBattleStore.misses.push(idx);
+                            }
+                        }
+                    }
+                    // Если стрелял ты — попадания по enemyHits/enemyMisses уже обрабатываются в attack()
                     break;
+                }
                 default:
                     console.warn('Unknown event type:', event.type);
             }
@@ -99,7 +122,7 @@ export default {
 
             try {
                 // 3. Делаем PATCH-запрос на /api/v1/{gameId}/fight
-                const url = this.api + '/api/v1/' + this.gameId + '/fight';
+                const url = 'https://' + this.api + '/api/v1/' + this.gameId + '/fight';
                 const payload = {
                     playerId: this.playerId,
                     coord: { x, y }
@@ -115,9 +138,13 @@ export default {
                 // 5. Обновляем цвет клетки в зависимости от результата
                 //    Например, HIT — красим в красный, MISS — в серый
                 if (state === 'HIT') {
-                    this.enemyHits.add(idx);
+                    if (!this.enemyHits.includes(idx)) {
+                        this.enemyHits = [...this.enemyHits, idx];
+                    }
                 } else {
-                    this.enemyMisses.add(idx);
+                    if (!this.enemyMisses.includes(idx)) {
+                        this.enemyMisses = [...this.enemyMisses, idx];
+                    }
                 }
 
 
@@ -195,6 +222,7 @@ export default {
 
 .enemy-cell.miss {
     background: #b0bec5;
+    background: repeating-linear-gradient(…);
 }
 
 

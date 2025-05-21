@@ -3,22 +3,24 @@
 
     <!-- Игровая сетка -->
     <div class="grid" @dragover.prevent @dragenter.prevent>
-      <div v-for="(cell, idx) in gridSize * gridSize" :key="idx" class="cell"
-        :class="{ 'adjacent-cell': adjacentCells.has(idx) }" @dragover.prevent @drop="onDrop($event, idx)">
+      <div v-for="idx in gridSize * gridSize" :key="idx" class="cell" :class="{
+        hit: hits && hits.includes(idx - 1),
+        miss: misses && misses.includes(idx - 1),
+        'ship-hit-cell': isShipHitCell(idx - 1)
+      }">
       </div>
 
 
       <!-- Отрисовка уже размещённых кораблей -->
-      <div v-for="ship in ships" :key="ship.id" class="ship" :style="shipStyle(ship)" @dblclick="removeShip(ship)"
-        @click="rotateShip(ship)" draggable="true" @pointerdown="onPointerDown($event)"
-        @dragstart="onShipDragStart(ship, $event)">
-        <div v-for="(coord, i) in ship.coords" :key="i" class="cell ship-cell" :data-index="i" :style="{
-          width: cellPx + 'px',
-          height: cellPx + 'px',
-          position: 'absolute',
-          top: (coord[1] - ship.coords[0][1]) * cellPx + 'px',
-          left: (coord[0] - ship.coords[0][0]) * cellPx + 'px'
-        }">
+      <div v-for="ship in ships" :key="ship.id" class="ship" :style="shipStyle(ship)">
+        <div v-for="(coord, i) in ship.coords" :key="i" class="cell ship-cell"
+          :class="{ hit: hits && hits.includes(coord[1] * gridSize + coord[0]) }" :data-index="i" :style="{
+            width: cellPx + 'px',
+            height: cellPx + 'px',
+            position: 'absolute',
+            top: (coord[1] - ship.coords[0][1]) * cellPx + 'px',
+            left: (coord[0] - ship.coords[0][0]) * cellPx + 'px'
+          }">
           {{ ship.name }}
         </div>
       </div>
@@ -49,6 +51,8 @@ export default {
     availableShips: { type: Array, required: true },
     ships: { type: Array, required: true },
     ready: { type: Boolean, required: true },
+    misses: { type: Array, required: false },
+    hits: { type: Array, required: false },
   },
   data() {
     return {
@@ -74,10 +78,34 @@ export default {
     removeShip(ship) {
       this.$emit('remove-ship', ship);
     },
+    isShipHitCell(idx) {
+      // Проверяем, есть ли корабль в этой клетке и есть ли попадание
+      if (!this.hits) return false;
+      for (const ship of this.ships) {
+        for (const [x, y] of ship.coords) {
+          if (y * this.gridSize + x === idx && this.hits.includes(idx)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    coordsEqual(a, b) {
+      if (a.length !== b.length) return false;
+      const setA = new Set(a.map(([x, y]) => `${x},${y}`));
+      const setB = new Set(b.map(([x, y]) => `${x},${y}`));
+      if (setA.size !== setB.size) return false;
+      for (const coord of setA) {
+        if (!setB.has(coord)) return false;
+      }
+      return true;
+    },
+
     rotateShip(ship) {
       const grabbedIndex = this.grabbedIndex ?? 0;
       const length = ship.coords.length;
       const [cx, cy] = ship.coords[grabbedIndex];
+      const grabbedCoord = ship.coords[grabbedIndex];
 
       // +90°
       let newDirection = ship.direction === 'horizontal' ? 'vertical' : 'horizontal';
@@ -86,12 +114,16 @@ export default {
         for (let i = 0; i < length; i++) {
           newCoords.push([cx - grabbedIndex + i, cy]);
         }
+        // сортировка по x
+        newCoords.sort((a, b) => a[0] - b[0]);
       } else {
         for (let i = 0; i < length; i++) {
           newCoords.push([cx, cy - grabbedIndex + i]);
         }
+        // сортировка по y
+        newCoords.sort((a, b) => a[1] - b[1]);
       }
-      if (this.boundCheck(newCoords, ship.id)) {
+      if (this.boundCheck(newCoords, ship.id) && !this.coordsEqual(ship.coords, newCoords)) {
         this.$emit('rotate-ship', {
           ...ship,
           direction: newDirection,
@@ -109,12 +141,14 @@ export default {
         for (let i = 0; i < length; i++) {
           newCoords.push([cx - grabbedIndex + (length - 1 - i), cy]);
         }
+        newCoords.sort((a, b) => a[0] - b[0]);
       } else {
         for (let i = 0; i < length; i++) {
           newCoords.push([cx, cy - grabbedIndex + (length - 1 - i)]);
         }
+        newCoords.sort((a, b) => a[1] - b[1]);
       }
-      if (this.boundCheck(newCoords, ship.id)) {
+      if (this.boundCheck(newCoords, ship.id) && !this.coordsEqual(ship.coords, newCoords)) {
         this.$emit('rotate-ship', {
           ...ship,
           direction: newDirection,
@@ -131,14 +165,16 @@ export default {
       newCoords = [];
       if (newDirection === 'horizontal') {
         for (let i = 0; i < length; i++) {
-          newCoords.push([cx - grabbedIndex + (length - 1 - i), cy]);
+          newCoords.push([cx - (i - grabbedIndex), cy]);
         }
+        newCoords.sort((a, b) => a[0] - b[0]);
       } else {
         for (let i = 0; i < length; i++) {
-          newCoords.push([cx, cy - grabbedIndex + (length - 1 - i)]);
+          newCoords.push([cx, cy - (i - grabbedIndex)]);
         }
+        newCoords.sort((a, b) => a[1] - b[1]);
       }
-      if (this.boundCheck(newCoords, ship.id)) {
+      if (this.boundCheck(newCoords, ship.id) && !this.coordsEqual(ship.coords, newCoords)) {
         this.$emit('rotate-ship', {
           ...ship,
           direction: newDirection,
@@ -355,8 +391,16 @@ export default {
   position: absolute;
 }
 
+.ship-cell.hit {
+  background: radial-gradient(circle, #e53935 60%, #b71c1c 100%) !important;
+  color: #fff;
+  box-shadow: 0 0 8px #e53935cc;
+  animation: splash-hit 0.4s;
+}
+
 .ship-cell {
-  background: #4c9baf;
+  /* background: #4c9baf;  <-- убрать отсюда */
+  z-index: 10;
   color: white;
   border: 1px solid #333;
   box-sizing: border-box;
@@ -366,8 +410,12 @@ export default {
   user-select: none;
 }
 
+.ship-cell:not(.hit) {
+  background: #4c9baf;
+}
+
 .ship-cell:hover {
-  background: #3e7a8e93;
+  background: #3e7a8e;
 }
 
 .ship-placeholder {
@@ -399,5 +447,36 @@ export default {
 
 .adjacent-cell {
   background-color: rgba(129, 128, 128, 0.036);
+}
+
+.cell.hit {
+  background: radial-gradient(circle, #e53935 60%, #b71c1c 100%);
+  color: #fff;
+  box-shadow: 0 0 8px #e53935cc;
+  animation: splash-hit 0.4s;
+}
+
+.cell.miss {
+  background: repeating-linear-gradient(135deg,
+      #b0bec5 0px,
+      #b0bec5 10px,
+      #cfd8dc 10px,
+      #cfd8dc 20px);
+  color: #607d8b;
+  animation: splash-miss 0.4s;
+}
+
+@keyframes splash-hit {
+  0% {
+    box-shadow: 0 0 0 #ff525200;
+  }
+
+  60% {
+    box-shadow: 0 0 32px #ff5252cc;
+  }
+
+  100% {
+    box-shadow: 0 0 16px 4px #ff5252cc;
+  }
 }
 </style>

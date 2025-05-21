@@ -12,7 +12,7 @@
         <button @click="joinRoom">Присоединиться</button>
       </div>
       <div class="user-input">
-        <input v-model="username" @debounced-input="saveUsername" placeholder="Введите имя пользователя" />
+        <input v-model="username" v-debounce @debounced-input="saveUsername" placeholder="Введите имя пользователя" />
       </div>
     </div>
   </div>
@@ -40,7 +40,9 @@ export default {
     const storedUsername = localStorage.getItem('username');
     if (storedUsername) {
       this.username = storedUsername;
+      this.usersStore.setUsername(storedUsername);
     }
+    console.log("Имя пользователя из localStorage:", this.username);
   },
   methods: {
     async createRoom() {
@@ -49,8 +51,6 @@ export default {
         userName: this.username,
       });
       this.playerId = response.data.playerId;
-      // this.hostName = response.data.hostName;
-      // this.hostId = response.data.hostId;
       this.gameId = response.data.gameId;
       localStorage.setItem('playerId', this.playerId);
       console.log("ID игрока:", this.playerId);
