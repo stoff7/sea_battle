@@ -4,34 +4,20 @@
  */
 package com.backendSeaBattle.sea_battle.controllers.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 /**
  *
  * @author Александра
  */
-
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-
-public class JoinGameRequest {
-  
-    @NotNull(message = "gameId обязателен")
-    private Long gameId;
+public class JoinRandomGameRequest {
 
     @NotBlank(message = "userName обязателен")
     private String userName;
 
-    public JoinGameRequest() {}
-
-    public Long getGameId() { return gameId; }
-    public void setGameId(Long gameId) { this.gameId = gameId; }
+    public JoinRandomGameRequest() {}
 
     public String getUserName() { return userName; }
     public void setUserName(String userName) { this.userName = userName; }
-
-    public JoinGameRequest(Long gameId, String userName) {
-        this.gameId = gameId;
-        this.userName = userName;
-    }
-    
-    
 }

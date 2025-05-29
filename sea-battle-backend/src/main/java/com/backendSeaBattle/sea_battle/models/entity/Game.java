@@ -20,6 +20,7 @@ import jakarta.persistence.ManyToOne;
 import java.time.LocalDateTime;
 
 import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
+import com.backendSeaBattle.sea_battle.models.enums.GameType;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 
@@ -84,6 +85,30 @@ public class Game {
 //    
     private LocalDateTime createdAt;
     private LocalDateTime finishedAt;
+        
+    @Enumerated(EnumType.STRING)
+    @Column(name = "game_type", nullable = false)
+    private GameType gameType;
+
+    public Game( User firstOwner, User secondOwner, GameStatus status, Long currentTurn, LocalDateTime createdAt, LocalDateTime finishedAt, GameType gameType) {
+        this.firstOwner = firstOwner;
+        this.secondOwner = secondOwner;
+        this.status = status;
+        this.currentTurn = currentTurn;
+        this.createdAt = createdAt;
+        this.finishedAt = finishedAt;
+        this.gameType = gameType;
+    }
+    
+    
+
+    public GameType getGameType() {
+        return gameType;
+    }
+
+    public void setGameType(GameType gameType) {
+        this.gameType = gameType;
+    }
 
     public Long getGame_id() {
         return game_id;

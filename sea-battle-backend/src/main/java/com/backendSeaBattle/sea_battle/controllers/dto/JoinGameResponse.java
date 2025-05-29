@@ -18,6 +18,8 @@ import lombok.NoArgsConstructor;
 public class JoinGameResponse {
     private Long gameId; 
     private Long playerId; 
+    private String hostName; 
+    private Long hostId; 
  
     private String message;
 
@@ -25,6 +27,39 @@ public class JoinGameResponse {
         this.gameId = gameId;
         this.playerId = playerId;
         this.message = message;
+    }
+
+    public JoinGameResponse(Long gameId, Long playerId, String hostName, Long hostId) {
+        this.gameId = gameId;
+        this.playerId = playerId;
+        this.hostName = hostName;
+        this.hostId = hostId;
+       
+    }
+
+    public JoinGameResponse(Long gameId, Long playerId, String hostName, Long hostId, String message) {
+        this.gameId = gameId;
+        this.playerId = playerId;
+        this.hostName = hostName;
+        this.hostId = hostId;
+        this.message = message;
+    }
+    
+
+    public String getHostName() {
+        return hostName;
+    }
+
+    public void setHostName(String hostName) {
+        this.hostName = hostName;
+    }
+
+    public Long getHostId() {
+        return hostId;
+    }
+
+    public void setHostId(Long hostId) {
+        this.hostId = hostId;
     }
 
     public String getMessage() {

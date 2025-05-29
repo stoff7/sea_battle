@@ -1,35 +1,25 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.backendSeaBattle.sea_battle.controllers.dto;
-
-/**
- *
- * @author Александра
- */
-
 
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import lombok.NoArgsConstructor;
 
-@NoArgsConstructor 
-
+@NoArgsConstructor
 public class ReadyGameRequest {
     @NotNull
-    private Long   playerId;      // чей это флот
-    @NotNull
-    private Boolean ready;        // true = выставил флот и жмёт Ready
-    // будет null или пустым, если ready=false
-    private List<CellCoords> cells;  
+    private Long playerId;
 
-    public ReadyGameRequest(Long playerId, Boolean ready, List<CellCoords> cells) {
+    @NotNull
+    private Boolean ready;
+
+    // Новый список кораблей с типом и клетками
+    private List<ShipRequest> ships;
+
+    public ReadyGameRequest(Long playerId, Boolean ready, List<ShipRequest> ships) {
         this.playerId = playerId;
         this.ready = ready;
-        this.cells = cells;
+        this.ships = ships;
     }
-
 
     public Long getPlayerId() {
         return playerId;
@@ -47,13 +37,11 @@ public class ReadyGameRequest {
         this.ready = ready;
     }
 
-    public List<CellCoords> getCells() {
-        return cells;
+    public List<ShipRequest> getShips() {
+        return ships;
     }
 
-    public void setCells(List<CellCoords> cells) {
-        this.cells = cells;
+    public void setShips(List<ShipRequest> ships) {
+        this.ships = ships;
     }
-    
 }
-

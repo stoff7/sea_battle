@@ -8,6 +8,10 @@ import com.backendSeaBattle.sea_battle.controllers.dto.FightRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.FightResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.JoinGameRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.JoinGameResponse;
+import com.backendSeaBattle.sea_battle.controllers.dto.JoinRandomGameRequest;
+import com.backendSeaBattle.sea_battle.controllers.dto.JoinRandomGameResponse;
+import com.backendSeaBattle.sea_battle.controllers.dto.LeaveGameRequest;
+import com.backendSeaBattle.sea_battle.controllers.dto.LeaveGameResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.ReadyGameRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.ReadyGameResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.StartGameRequest;
@@ -15,6 +19,7 @@ import com.backendSeaBattle.sea_battle.controllers.dto.StartGameResponse;
 import com.backendSeaBattle.sea_battle.models.entity.Game;
 import com.backendSeaBattle.sea_battle.models.entity.User;
 import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
+import com.backendSeaBattle.sea_battle.models.enums.GameType;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,13 +31,11 @@ import com.backendSeaBattle.sea_battle.service.CellService;
 import com.backendSeaBattle.sea_battle.service.UserService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
-import org.springframework.context.annotation.Configuration;
+import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  *
@@ -52,11 +55,44 @@ public class GameController {
     public ResponseEntity<StartGameResponse> startGame(@RequestBody @Valid StartGameRequest req) {
         User user = userService.startGame(req.getUserName());
         Long playerId = user.getUser_id();
-        Game game = gameService.startGame(user);
+        Game game = gameService.startGame(user, req.getGameType());
         Long gameId = game.getGame_id();
 
         StartGameResponse resp = new StartGameResponse(playerId, gameId);
         return ResponseEntity.ok(resp);
+
+    }
+
+    @PostMapping("/join_random_game")
+    public ResponseEntity<JoinRandomGameResponse> joinRandomGame(
+            @RequestBody @Valid JoinRandomGameRequest req) {
+
+        Optional<Game> optGame = gameService.findOpenGame();
+        if (optGame.isEmpty()) {
+            User user = userService.startGame(req.getUserName());
+            Long playerId = user.getUser_id();
+            Game game = gameService.startGame(user, GameType.OPEN);
+            Long gameId = game.getGame_id();
+
+            JoinRandomGameResponse resp = new JoinRandomGameResponse(gameId, playerId, null, null, null);
+            return ResponseEntity.ok(resp);
+
+        } else {
+            Long gameId = optGame.get().getGame_id();
+
+            try {
+                var result = gameService.joinGame(gameId, req.getUserName());
+                return ResponseEntity.ok(
+                        new JoinRandomGameResponse(result.gameId(), result.playerId(), result.HostName(), result.HostId(), null)
+                );
+            } catch (EntityNotFoundException ex) {
+                return ResponseEntity.notFound().build();
+
+            } catch (IllegalStateException ex) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(new JoinRandomGameResponse(null, null, null, null, ex.getMessage()));
+            }
+        }
 
     }
 
@@ -68,13 +104,14 @@ public class GameController {
         try {
             var result = gameService.joinGame(gameId, req.getUserName());
             return ResponseEntity.ok(
-                    new JoinGameResponse(result.gameId(), result.playerId())
+                    new JoinGameResponse(result.gameId(), result.playerId(), result.HostName(), result.HostId())
             );
         } catch (EntityNotFoundException ex) {
             return ResponseEntity.notFound().build();
+
         } catch (IllegalStateException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(new JoinGameResponse(null, null, ex.getMessage()));
+                    .body(new JoinGameResponse(null, null, null, null, ex.getMessage()));
         }
 
     }
@@ -86,7 +123,7 @@ public class GameController {
     ) {
         try {
             var result = gameService.readyGame(
-                    gameId, req.getPlayerId(), req.getReady(), req.getCells()
+                    gameId, req
             );
             // result содержит: GameStatus, флаги готовности каждого
             ReadyGameResponse resp = new ReadyGameResponse(
@@ -96,14 +133,13 @@ public class GameController {
             );
 
             return ResponseEntity.ok(resp);
-            
+
         } catch (EntityNotFoundException ex) {
             return ResponseEntity.notFound().build();
         } catch (IllegalStateException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new ReadyGameResponse(ex.getMessage()));
         }
-        
 
     }
 
@@ -119,18 +155,39 @@ public class GameController {
 
             GameStatus gameStatus = gameService.endGame(gameId, req.getPlayerId());
 
-            FightResponse resp = new FightResponse(result.playerId(), result.coord(), result.State(), result.nextPlayerId(), gameStatus);
+            FightResponse resp = new FightResponse(result.playerId(), result.coord(), result.State(), result.nextPlayerId(), gameStatus, result.resultShipState());
             return ResponseEntity.ok(resp);
 
         } catch (EntityNotFoundException ex) {
             return ResponseEntity.notFound().build();
         } catch (IllegalStateException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(new FightResponse(null, null, null, null, null, ex.getMessage()));
+                    .body(new FightResponse(null, null, null, null, null, null, ex.getMessage()));
         }
     }
     
-    
+     @PostMapping("/{gameId}/leave_game")
+     public ResponseEntity<LeaveGameResponse> leaveGame(
+            @PathVariable Long gameId,
+            @RequestBody @Valid LeaveGameRequest req
+    ) {
+
+            try {
+            gameService.leaveGame(gameId, req.getPlayerId());
+
+            LeaveGameResponse resp = new LeaveGameResponse(null);
+            return ResponseEntity.ok(resp);
+
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new LeaveGameResponse(null));
+        }
+
+         
+         
+     }
 
     // Request:
     // gameId

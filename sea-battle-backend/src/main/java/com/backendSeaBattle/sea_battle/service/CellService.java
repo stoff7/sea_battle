@@ -52,4 +52,8 @@ public class CellService {
 
     }
 
+    public Optional<Cell> findById(Long Id) {
+        return repository.findById(Id);
+    }
+
 }

@@ -4,7 +4,9 @@
  */
 package com.backendSeaBattle.sea_battle.models.entity;
 
-import com.backendSeaBattle.sea_battle.models.enums.CellState;
+import com.backendSeaBattle.sea_battle.models.enums.ShipState;
+import com.backendSeaBattle.sea_battle.models.enums.ShipType;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -16,7 +18,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.NoArgsConstructor;
 
 /**
@@ -25,12 +30,12 @@ import lombok.NoArgsConstructor;
  */
 @NoArgsConstructor
 @Entity
-@Table(name = "cells")
-public class Cell {
+@Table(name = "ship")
+public class Ship {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    private Long cell_id;
+    private Long ship_id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
@@ -42,37 +47,30 @@ public class Cell {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
-            name = "cell_owner",
+            name = "ship_owner",
             nullable = false,
             foreignKey = @ForeignKey(name = "fk_ship_owner")
     )
     private User owner;
 
-    private int x;
-    private int y;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ship_state", nullable = false)
+    private ShipState status;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "cell_state", nullable = false)
-    private CellState status;
+    @Column(name = "ship_type", nullable = false)
+    private ShipType type;
 
-    @ManyToOne
-    @JoinColumn(name = "ship_id")
-    private Ship ship;
+    // связь с клетками
+    @OneToMany(mappedBy = "ship", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Cell> cells = new ArrayList<>();
 
-    public Cell(Game game, User owner, int x, int y, CellState status) {
-        this.game = game;
-        this.owner = owner;
-        this.x = x;
-        this.y = y;
-        this.status = status;
+    public Long getShip_id() {
+        return ship_id;
     }
 
-    public Long getCell_id() {
-        return cell_id;
-    }
-
-    public void setCell_id(Long cell_id) {
-        this.cell_id = cell_id;
+    public void setShip_id(Long ship_id) {
+        this.ship_id = ship_id;
     }
 
     public Game getGame() {
@@ -91,38 +89,28 @@ public class Cell {
         this.owner = owner;
     }
 
-    public int getX() {
-        return x;
-    }
-
-    public void setX(int x) {
-        this.x = x;
-    }
-
-    public int getY() {
-        return y;
-    }
-
-    public void setY(int y) {
-        this.y = y;
-    }
-
-    public CellState getStatus() {
+    public ShipState getStatus() {
         return status;
     }
 
-    public void setStatus(CellState status) {
+    public void setStatus(ShipState status) {
         this.status = status;
     }
 
-    public Ship getShip() {
-        return ship;
+    public ShipType getType() {
+        return type;
     }
 
-    public void setShip(Ship ship) {
-        this.ship = ship;
+    public void setType(ShipType type) {
+        this.type = type;
     }
-    
-    
+
+    public List<Cell> getCells() {
+        return cells;
+    }
+
+    public void setCells(List<Cell> cells) {
+        this.cells = cells;
+    }
 
 }

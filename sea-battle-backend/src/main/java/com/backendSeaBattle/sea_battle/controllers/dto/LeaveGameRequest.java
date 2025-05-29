@@ -4,7 +4,6 @@
  */
 package com.backendSeaBattle.sea_battle.controllers.dto;
 
-import com.backendSeaBattle.sea_battle.models.enums.GameType;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -15,17 +14,12 @@ import lombok.Setter;
  *
  * @author Александра
  */
-
 @AllArgsConstructor 
-@NoArgsConstructor
-@Getter 
+@NoArgsConstructor 
 @Setter
+@Getter 
 
-public class StartGameRequest {
-    @NotNull 
-    private String userName; 
-    
+public class LeaveGameRequest {
     @NotNull
-    private GameType gameType; 
-    
+    private Long playerId;
 }

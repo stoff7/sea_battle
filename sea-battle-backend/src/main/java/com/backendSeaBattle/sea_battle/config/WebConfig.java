@@ -14,8 +14,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  *
  * @author Александра
  */
-
-
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
@@ -28,17 +26,17 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         CorsRegistration reg = registry.addMapping("/api/**")
-            // Разрешаем запросы с localhost:5173 (ваш фронтенд)...
-            .allowedOrigins("http://localhost:5173");
-
-        // Если вы используете ngrok (фронтенд тоже может обращаться по ngrok), добавляем и его:
+                // Разрешаем запросы с localhost:5173 (ваш фронтенд)...
+                .allowedOrigins(
+                        "https://3015-193-37-196-53.ngrok-free.app", // ← твой фронт
+                        "http://localhost:3000" // ← если локально тестируешь
+                );// Если вы используете ngrok (фронтенд тоже может обращаться по ngrok), добавляем и его:
         if (ngrokEnabled && !publicUrl.isBlank()) {
             reg.allowedOrigins(publicUrl);
         }
 
         reg.allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
-           .allowCredentials(true)
-           .allowedHeaders("*");
+                .allowCredentials(true)
+                .allowedHeaders("*");
     }
 }
-

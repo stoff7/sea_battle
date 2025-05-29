@@ -6,8 +6,7 @@ package com.backendSeaBattle.sea_battle.controllers.dto;
 
 import com.backendSeaBattle.sea_battle.models.enums.CellState;
 import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
-import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
+import com.backendSeaBattle.sea_battle.models.enums.ShipState;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -17,7 +16,7 @@ import lombok.Setter;
  * @author Александра
  */
 
-@AllArgsConstructor 
+
 @NoArgsConstructor 
 @Getter 
 @Setter 
@@ -31,20 +30,35 @@ public class FightResponse {
 
     private CellState State;
     
-
     private Long nextPlayerId; 
     
     private GameStatus gameStatus; 
     
     private String message;
+    
+    private ShipState ShipState;
 
-    public FightResponse(Long playerId, CellCoords coord, CellState State, Long nextPlayerId, GameStatus gameStatus) {
+    public FightResponse(Long playerId, CellCoords coord, CellState State, Long nextPlayerId, GameStatus gameStatus, ShipState ShipState) {
         this.playerId = playerId;
         this.coord = coord;
         this.State = State;
         this.nextPlayerId = nextPlayerId;
         this.gameStatus = gameStatus;
+        this.ShipState = ShipState;
     }
+
+    public FightResponse(Long playerId, CellCoords coord, CellState State, Long nextPlayerId, GameStatus gameStatus, ShipState ShipState,  String message) {
+        this.playerId = playerId;
+        this.coord = coord;
+        this.State = State;
+        this.nextPlayerId = nextPlayerId;
+        this.gameStatus = gameStatus;
+        this.message = message;
+        this.ShipState = ShipState;
+    }
+    
+    
+    
     
     
 
