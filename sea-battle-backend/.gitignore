@@ -35,9 +35,10 @@ build/
 ###
 # Spring Boot: конфигурации с секретами (не коммитим)
 ###
+/src/main/resources/application-dev.properties
 /src/main/resources/application.properties
 /src/main/resources/application-local.properties
-/src/main/resources/application-dev.properties
+
 
 # Если вы решите хранить пароли в .env — игнорируем его
 *.env
