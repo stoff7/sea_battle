@@ -1,5 +1,8 @@
-HELP.md
-target/
+###
+# Сборочные артефакты и IDE-/OS-файлы
+###
+/target/
+build/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
@@ -25,13 +28,24 @@ target/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
 ### VS Code ###
 .vscode/
 
-# игнорим конкретный файл с настройками
+###
+# Spring Boot: конфигурации с секретами (не коммитим)
+###
 /src/main/resources/application.properties
-/src/main/java/application.properties
+/src/main/resources/application-local.properties
+
+# Если вы решите хранить пароли в .env — игнорируем его
+*.env
+
+###
+# Но оставляем в репозитории «шаблонные» файлы:
+###
+!/src/main/resources/application-dev.properties
+!/src/main/resources/application-prod.properties
+
+# Логи
+*.log

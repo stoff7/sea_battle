@@ -6,6 +6,7 @@ package com.backendSeaBattle.sea_battle.models.entity;
 
 import com.backendSeaBattle.sea_battle.models.enums.ShipState;
 import com.backendSeaBattle.sea_battle.models.enums.ShipType;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -63,6 +64,7 @@ public class Ship {
 
     // связь с клетками
     @OneToMany(mappedBy = "ship", cascade = CascadeType.ALL, orphanRemoval = true)
+  
     private List<Cell> cells = new ArrayList<>();
 
     public Long getShip_id() {

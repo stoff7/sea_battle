@@ -5,6 +5,7 @@
 package com.backendSeaBattle.sea_battle.models.entity;
 
 import com.backendSeaBattle.sea_battle.models.enums.CellState;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -57,6 +58,7 @@ public class Cell {
 
     @ManyToOne
     @JoinColumn(name = "ship_id")
+    
     private Ship ship;
 
     public Cell(Game game, User owner, int x, int y, CellState status) {

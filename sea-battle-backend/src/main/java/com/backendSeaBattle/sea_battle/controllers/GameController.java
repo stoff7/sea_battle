@@ -4,6 +4,8 @@
  */
 package com.backendSeaBattle.sea_battle.controllers;
 
+import com.backendSeaBattle.sea_battle.controllers.dto.ChatMessageRequest;
+import com.backendSeaBattle.sea_battle.controllers.dto.ChatMessageResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.FightRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.FightResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.JoinGameRequest;
@@ -14,6 +16,8 @@ import com.backendSeaBattle.sea_battle.controllers.dto.LeaveGameRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.LeaveGameResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.ReadyGameRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.ReadyGameResponse;
+import com.backendSeaBattle.sea_battle.controllers.dto.ReplayGameRequest;
+import com.backendSeaBattle.sea_battle.controllers.dto.ReplayGameResponse;
 import com.backendSeaBattle.sea_battle.controllers.dto.StartGameRequest;
 import com.backendSeaBattle.sea_battle.controllers.dto.StartGameResponse;
 import com.backendSeaBattle.sea_battle.models.entity.Game;
@@ -165,14 +169,14 @@ public class GameController {
                     .body(new FightResponse(null, null, null, null, null, null, ex.getMessage()));
         }
     }
-    
-     @PostMapping("/{gameId}/leave_game")
-     public ResponseEntity<LeaveGameResponse> leaveGame(
+
+    @PostMapping("/{gameId}/leave_game")
+    public ResponseEntity<LeaveGameResponse> leaveGame(
             @PathVariable Long gameId,
             @RequestBody @Valid LeaveGameRequest req
     ) {
 
-            try {
+        try {
             gameService.leaveGame(gameId, req.getPlayerId());
 
             LeaveGameResponse resp = new LeaveGameResponse(null);
@@ -185,27 +189,58 @@ public class GameController {
                     .body(new LeaveGameResponse(null));
         }
 
-         
-         
-     }
+    }
 
-    // Request:
-    // gameId
-    // playerId
-    // ready: TRUE, FALSE 
-    // ships [[], [], ]
-    // Response: 
-    // gameStatus: WAITINGREADY, ACTIVE
-    // firstOwnerReady: TRUE, FALSE 
-    // secondOwnerReady: TRUE, FALSE 
-    // XY - СТОЛБЕЦ, СТРОКА
-    // ПРИ ready: TRUE
-    // проверка на валидность 
-    // ввод в базу данных
-    // изменение статуса готовности игрока
-    // сравнение статусов 
-    // при совпадении меняю GAMESTATUS
-    // при ready false 
-    // обнуляю расположение для игрока 
-    // меняю статус готовности игрока 
+    @PostMapping("/{gameId}/chat_message")
+    public ResponseEntity<ChatMessageResponse> chatMessage(@PathVariable Long gameId, @RequestBody @Valid ChatMessageRequest req) {
+
+        try {
+            gameService.sendMessage(gameId, req.getPlayerId(), req.getTextMessage());
+            return ResponseEntity.ok().build();
+
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ChatMessageResponse(ex.getMessage()));
+        }
+    }
+
+    @PatchMapping("/{gameId}/replay_game")
+    public ResponseEntity<ReplayGameResponse> replayGame(@PathVariable Long gameId, @RequestBody @Valid ReplayGameRequest req) {
+
+        try {
+            var result = gameService.replayGame(gameId, req.getPlayerId());
+
+            ReplayGameResponse resp = new ReplayGameResponse(result.gameId(), result.playerId(), result.gameStatus(), result.hostName(), result.hostId(), null);
+            return ResponseEntity.ok(resp);
+
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.notFound().build();
+
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ReplayGameResponse(null, null, null, null, null, ex.getMessage()));
+        }
+    }
 }
+// Request:
+// gameId
+// playerId
+// ready: TRUE, FALSE 
+// ships [[], [], ]
+// Response: 
+// gameStatus: WAITINGREADY, ACTIVE
+// firstOwnerReady: TRUE, FALSE 
+// secondOwnerReady: TRUE, FALSE 
+// XY - СТОЛБЕЦ, СТРОКА
+// ПРИ ready: TRUE
+// проверка на валидность 
+// ввод в базу данных
+// изменение статуса готовности игрока
+// сравнение статусов 
+// при совпадении меняю GAMESTATUS
+// при ready false 
+// обнуляю расположение для игрока 
+// меняю статус готовности игрока 
+

@@ -23,15 +23,14 @@ public class WebSocketConfiguration implements WebSocketMessageBrokerConfigurer 
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry
                 .addEndpoint("/ws")
-                .setAllowedOriginPatterns("*") // DEV ONLY
-                .withSockJS(); // enable SockJS fallback
+                .setAllowedOriginPatterns("*"); // DEV ONLY
+ //               .withSockJS(); // enable SockJS fallback
     }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic", "/queue");
+        config.enableSimpleBroker("/topic");   // для публикаций
         config.setApplicationDestinationPrefixes("/app");
-        config.setUserDestinationPrefix("/user");
     }
 
 }
