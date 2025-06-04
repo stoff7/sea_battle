@@ -1,0 +1,53 @@
+###
+# Сборочные артефакты и IDE-/OS-файлы
+###
+/target/
+build/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+###
+# Spring Boot: конфигурации с секретами (не коммитим)
+###
+/src/main/resources/application-dev.properties
+/src/main/resources/application.properties
+/src/main/resources/application-local.properties
+
+
+# Если вы решите хранить пароли в .env — игнорируем его
+*.env
+
+###
+# Но оставляем в репозитории «шаблонные» файлы:
+###
+
+!/src/main/resources/application-prod.properties
+
+# Логи
+*.log
