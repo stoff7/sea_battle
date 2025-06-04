@@ -37,6 +37,7 @@ build/
 ###
 /src/main/resources/application.properties
 /src/main/resources/application-local.properties
+/src/main/resources/application-dev.properties
 
 # Если вы решите хранить пароли в .env — игнорируем его
 *.env
@@ -44,7 +45,7 @@ build/
 ###
 # Но оставляем в репозитории «шаблонные» файлы:
 ###
-!/src/main/resources/application-dev.properties
+
 !/src/main/resources/application-prod.properties
 
 # Логи
