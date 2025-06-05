@@ -145,11 +145,14 @@ public class GameService {
             user.setReady(false);
             userService.save(user);
         }
-
-        // 4) Пересчитываем статус игры
         boolean first = game.getFirstOwner().isReady();
         boolean second = game.getSecondOwner() != null && game.getSecondOwner().isReady();
-        game.setStatus(first && second ? GameStatus.ACTIVE : GameStatus.WAITINGREADY);
+        if (game.getFirstOwner() != null && game.getSecondOwner() != null) {
+            // 4) Пересчитываем статус игры
+
+            game.setStatus(first && second ? GameStatus.ACTIVE : GameStatus.WAITINGREADY);
+        }
+
         repository.save(game);
 
         // 5) Публикуем событие playerReady
@@ -233,10 +236,7 @@ public class GameService {
                     .collect(Collectors.toList());
 
             return new FightResult(playerId, coord, shotResult.cellState, shotResult.nextPlayerId, shotResult.shipState, shotResult.ship.getType(), killedCoords);
-        } 
-        
-         
-        else {
+        } else {
             return new FightResult(playerId, coord, shotResult.cellState, shotResult.nextPlayerId, shotResult.shipState, null, null);
         }
 
@@ -339,16 +339,29 @@ public class GameService {
                 : game.getFirstOwner();
 
         // Публикуем событие chatMessage
-        eventPublisher.publish(new GameEvent(
-                game.getGame_id(),
-                "chatMessage",
-                Map.of(
-                        "fromPlayer", user.getUser_name(),
-                        "toPlayer", defender.getUser_name(),
-                        "text", textMessage,
-                        "timestamp", LocalDateTime.now().toString()
-                )
-        ));
+        if (game.getFirstOwner() != null && game.getSecondOwner() != null) {
+            eventPublisher.publish(new GameEvent(
+                    game.getGame_id(),
+                    "chatMessage",
+                    Map.of(
+                            "fromPlayer", user.getUser_name(),
+                            "toPlayer", defender.getUser_name(),
+                            "text", textMessage,
+                            "timestamp", LocalDateTime.now().toString()
+                    )
+            ));
+        } else {
+            eventPublisher.publish(new GameEvent(
+                    game.getGame_id(),
+                    "chatMessage",
+                    Map.of(
+                            "fromPlayer", user.getUser_name(),
+                            "toPlayer", user.getUser_name(),
+                            "text", textMessage,
+                            "timestamp", LocalDateTime.now().toString()
+                    )
+            ));
+        }
     }
 
     public record ReplayGameResult(Long gameId, Long playerId, GameStatus gameStatus, String hostName, Long nextPlayerId, Long hostId) {
