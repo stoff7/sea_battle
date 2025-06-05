@@ -84,7 +84,7 @@ export default {
             opponentName: userStorage.opponentName,
             enemyHits: [],
             enemyMisses: [],
-            nextPlayerId: null,
+            nextPlayerId: localStorage.getItem('role') === 'host' ? userStorage.playerId : userStorage.opponentId,
             gameStatus: null,
             attackCellColors: Array(100).fill('#fff'), // Цвета клеток для атаки
             attackBlocked: Array(100).fill(false), // Блокировка клеток для атаки
