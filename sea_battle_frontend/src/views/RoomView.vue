@@ -345,6 +345,7 @@ export default {
 
                 case 'gameStarted':
                     this.inBattleStore.reset();
+                    localStorage.setItem('role', this.role);
                     this.$router.push({ name: 'inbattle', params: { gameId: this.gameId } });
                     break
 
