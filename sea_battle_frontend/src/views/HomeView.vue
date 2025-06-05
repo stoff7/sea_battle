@@ -65,6 +65,7 @@ import { useUsersStore } from '@/stores/users';
 import leftImg from '@/assets/images/left.jpeg';
 import rightImg from '@/assets/images/right.jpeg';
 import LanguageButton from '@/components/LanguageButton.vue';
+
 export default {
   name: "HomeView",
   components: {
@@ -72,6 +73,7 @@ export default {
   },
   data() {
     const usersStore = useUsersStore();
+    console.log(usersStore);
     return {
       api: 'https://' + import.meta.env.VITE_API + '/api/v1',
       playerId: localStorage.getItem('playerId'),
@@ -95,6 +97,11 @@ export default {
       this.usersStore.setUsername(storedUsername);
     }
     console.log("Имя пользователя из localStorage:", this.username);
+  },
+  mounted() {
+    console.log('Локаль:', this.$i18n.locale);
+    console.log('messages:', this.$i18n.messages);
+    console.log('home.title:', this.$t('home.title'));
   },
   methods: {
     async createRoom(type) {
