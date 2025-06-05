@@ -7,6 +7,8 @@ package com.backendSeaBattle.sea_battle.controllers.dto;
 import com.backendSeaBattle.sea_battle.models.enums.CellState;
 import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
 import com.backendSeaBattle.sea_battle.models.enums.ShipState;
+import com.backendSeaBattle.sea_battle.models.enums.ShipType;
+import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -37,17 +39,23 @@ public class FightResponse {
     private String message;
     
     private ShipState ShipState;
+    
+        // Новые поля для «убитого» корабля:
+    private ShipType resultShipType;
+    private List<CellCoords> resultShipCoords;
 
-    public FightResponse(Long playerId, CellCoords coord, CellState State, Long nextPlayerId, GameStatus gameStatus, ShipState ShipState) {
+    public FightResponse(Long playerId, CellCoords coord, CellState State, Long nextPlayerId, GameStatus gameStatus, ShipState ShipState, ShipType resultShipType, List<CellCoords> resultShipCoords) {
         this.playerId = playerId;
         this.coord = coord;
         this.State = State;
         this.nextPlayerId = nextPlayerId;
         this.gameStatus = gameStatus;
         this.ShipState = ShipState;
+        this.resultShipType = resultShipType;
+        this.resultShipCoords = resultShipCoords;
     }
 
-    public FightResponse(Long playerId, CellCoords coord, CellState State, Long nextPlayerId, GameStatus gameStatus, ShipState ShipState,  String message) {
+    public FightResponse(Long playerId, CellCoords coord, CellState State, Long nextPlayerId, GameStatus gameStatus, String message, ShipState ShipState, ShipType resultShipType, List<CellCoords> resultShipCoords) {
         this.playerId = playerId;
         this.coord = coord;
         this.State = State;
@@ -55,8 +63,13 @@ public class FightResponse {
         this.gameStatus = gameStatus;
         this.message = message;
         this.ShipState = ShipState;
+        this.resultShipType = resultShipType;
+        this.resultShipCoords = resultShipCoords;
     }
+
+ 
     
+
     
     
     

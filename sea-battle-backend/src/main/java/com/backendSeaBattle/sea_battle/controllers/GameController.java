@@ -159,14 +159,14 @@ public class GameController {
 
             GameStatus gameStatus = gameService.endGame(gameId, req.getPlayerId());
 
-            FightResponse resp = new FightResponse(result.playerId(), result.coord(), result.State(), result.nextPlayerId(), gameStatus, result.resultShipState());
+            FightResponse resp = new FightResponse(result.playerId(), result.coord(), result.State(), result.nextPlayerId(), gameStatus, result.resultShipState(), result.resultShipType(), result.resultShipCoords());
             return ResponseEntity.ok(resp);
 
         } catch (EntityNotFoundException ex) {
             return ResponseEntity.notFound().build();
         } catch (IllegalStateException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(new FightResponse(null, null, null, null, null, null, ex.getMessage()));
+                    .body(new FightResponse(null, null, null, null, null, ex.getMessage(), null, null, null));
         }
     }
 

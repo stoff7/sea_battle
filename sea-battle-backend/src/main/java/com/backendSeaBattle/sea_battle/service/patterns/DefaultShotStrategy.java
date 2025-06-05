@@ -17,10 +17,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Базовая стратегия обработки выстрела:
- * - Если попал по SHIP, ставим HIT, помечаем корабль TOUCHED или KILL
- * - Если уже стреляли в эту клетку (HIT/MISS) – бросаем исключение
- * - Иначе – создаём MISS и передаём очередь хода
+ * Базовая стратегия обработки выстрела: - Если попал по SHIP, ставим HIT,
+ * помечаем корабль TOUCHED или KILL - Если уже стреляли в эту клетку (HIT/MISS)
+ * – бросаем исключение - Иначе – создаём MISS и передаём очередь хода
  */
 @Component
 @AllArgsConstructor
@@ -56,14 +55,20 @@ public class DefaultShotStrategy implements ShotStrategy {
             ship.setStatus(newState);
             shipRepository.save(ship);
 
-            return new ShotResult(CellState.HIT, newState, nextPlayer);
+            if (newState == ShipState.KILL) {
+                // возвращаем корабль, так как он полностью уничтожен
+                return new ShotResult(CellState.HIT, newState, nextPlayer, ship);
+            } else {
+                // просто «ранение», корабль ещё не убит
+                return new ShotResult(CellState.HIT, newState, nextPlayer);
+            }
 
-        // Случай: клетка существует, но она уже была или HIT, или MISS
-        } else if (maybeCell.isPresent() &&
-                   (maybeCell.get().getStatus() == CellState.HIT || maybeCell.get().getStatus() == CellState.MISS)) {
+            // Случай: клетка существует, но она уже была или HIT, или MISS
+        } else if (maybeCell.isPresent()
+                && (maybeCell.get().getStatus() == CellState.HIT || maybeCell.get().getStatus() == CellState.MISS)) {
             throw new IllegalStateException("Нельзя ходить, в данную координату был ход");
 
-        // Случай: клетки нет — это промах
+            // Случай: клетки нет — это промах
         } else {
             Cell miss = new Cell();
             miss.setGame(game);
@@ -74,7 +79,7 @@ public class DefaultShotStrategy implements ShotStrategy {
             cellService.save(miss);
 
             // Ход переходит к защищающемуся
-            return new ShotResult(CellState.MISS, null, defender.getUser_id());
+            return new ShotResult(CellState.MISS, null, defender.getUser_id(), null);
         }
     }
 }

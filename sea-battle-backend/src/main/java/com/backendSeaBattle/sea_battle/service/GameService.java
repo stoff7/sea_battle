@@ -15,6 +15,7 @@ import com.backendSeaBattle.sea_battle.models.enums.CellState;
 import com.backendSeaBattle.sea_battle.models.enums.GameStatus;
 import com.backendSeaBattle.sea_battle.models.enums.GameType;
 import com.backendSeaBattle.sea_battle.models.enums.ShipState;
+import com.backendSeaBattle.sea_battle.models.enums.ShipType;
 import com.backendSeaBattle.sea_battle.repository.GameRepository;
 import com.backendSeaBattle.sea_battle.repository.ShipRepository;
 import com.backendSeaBattle.sea_battle.service.patterns.CellFactory;
@@ -32,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * GameService с добавлением трёх паттернов (Factory, Strategy, Observer): –
@@ -217,11 +219,30 @@ public class GameService {
                 )
         ));
 
-        // 7) Возвращаем результат
-        return new FightResult(playerId, coord, shotResult.cellState, shotResult.nextPlayerId, shotResult.shipState);
+        // 7) Если KILL – достаём тип корабля и его координаты; иначе – оставляем null
+        ShipType killedType = null;
+        List<CellCoords> killedCoords = null;
+
+        if (shotResult.shipState == ShipState.KILL && shotResult.ship != null) {
+            Ship killed = shotResult.ship;
+            killedType = killed.getType();
+
+            // Преобразуем List<Cell> → List<CellCoords>
+            killedCoords = killed.getCells().stream()
+                    .map(cell -> new CellCoords(cell.getX(), cell.getY()))
+                    .collect(Collectors.toList());
+
+            return new FightResult(playerId, coord, shotResult.cellState, shotResult.nextPlayerId, shotResult.shipState, shotResult.ship.getType(), killedCoords);
+        } 
+        
+         
+        else {
+            return new FightResult(playerId, coord, shotResult.cellState, shotResult.nextPlayerId, shotResult.shipState, null, null);
+        }
+
     }
 
-    public record FightResult(Long playerId, CellCoords coord, CellState State, Long nextPlayerId, ShipState resultShipState) {
+    public record FightResult(Long playerId, CellCoords coord, CellState State, Long nextPlayerId, ShipState resultShipState, ShipType resultShipType, List<CellCoords> resultShipCoords) {
 
     }
 
