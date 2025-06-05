@@ -115,19 +115,14 @@ export default {
             `/topic/games/${this.gameId}`,
             ({ body }) => this.handleGameEvent(JSON.parse(body))
         )
-        this.loadBattleProgress();
-        if (!localStorage.getItem('nextPlayerId')) {
-            console.log('No nextPlayerId in localStorage, setting based on role', this.userStorage.role);
-            if (localStorage.getItem('role') === 'host') {
-                this.nextPlayerId = this.playerId
-            }
-            else {
-                this.nextPlayerId = this.opponentId
-            }
+
+        if (localStorage.getItem('role') === 'host') {
+            this.nextPlayerId = this.playerId
         }
         else {
-            this.loadBattleProgress();
+            this.nextPlayerId = this.opponentId
         }
+
     },
     unmounted() {
         // 3) отключаемся от веб-сокета
