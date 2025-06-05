@@ -101,7 +101,7 @@ export default {
         gameId: { type: String, required: true }
     },
     mounted() {
-
+        document.title = t('home.title')
         wsService.connect(this.api, this.gameId)
 
         // 2) подписываемся на событие игры
@@ -127,7 +127,10 @@ export default {
     },
     unmounted() {
         wsService.disconnect();
-        window.removeEventListener('beforeunload', this.handleBeforeUnload);
+        if (this.startGame) {
+            console.log('Отключаемся от комнаты ВУИГПП', this.gameId);
+            this.disconnect();
+        }
     },
     data() {
         const userStorage = useUsersStore();
@@ -143,6 +146,7 @@ export default {
             opponentReady: false,
             playerId: userStorage.playerId,
             isReady: false,
+            startGame: false,
 
             role: userStorage.role,
             ships: [],  // размещённые на поле
@@ -344,6 +348,7 @@ export default {
                     break
 
                 case 'gameStarted':
+                    this.startGame = true;
                     this.inBattleStore.reset();
                     localStorage.setItem('role', this.role);
                     this.$router.push({ name: 'inbattle', params: { gameId: this.gameId } });

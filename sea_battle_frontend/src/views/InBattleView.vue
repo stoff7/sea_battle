@@ -1,6 +1,7 @@
 <template>
     <div class="battle-page" @dragstart.prevent @dragover.prevent @drop.prevent>
         <LanguageButton class="lang-btn" />
+        <button class="disconnect-btn" @click="disconnect">{{ $t('room.leave') }}</button>
         <div class="timer-bar">
             <template v-if="isMyTurn">
                 <span>{{ $t('inbattle.your_turn', { seconds: timer }) }}</span>
@@ -158,6 +159,19 @@ export default {
         }
     },
     methods: {
+        async disconnect() {
+            try {
+                const response = await axios.post('https://' + this.api + '/api/v1/' + this.gameId + '/leave_game', {
+                    playerId: this.playerId,
+                });
+                console.log('Отключаемся от комнаты', this.gameId);
+                console.log('response', response);
+                wsService.disconnect();
+                this.$router.push({ name: 'home' });
+            } catch (error) {
+                console.error('Ошибка при отключении от комнаты:', error);
+            }
+        },
         startTimer() {
             this.clearTimer();
             if (!this.isMyTurn || this.stopTimer) return;
@@ -241,9 +255,11 @@ export default {
                         this.$router.push({ name: 'home' });
                     } else {
                         console.log('Opponent left the game:', event);
-                        alert(`${event.data.playerName} покинул игру!`);
+                        alert(`${this.opponentName} покинул игру!`);
                         this.opponentId = null;
                         this.opponentName = null;
+                        localStorage.setItem('role', 'host');
+                        this.$router.push({ name: 'room', params: { gameId: this.gameId } });
                     }
                 }
                 case 'chatMessage': {
