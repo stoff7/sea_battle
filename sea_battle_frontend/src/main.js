@@ -1,14 +1,35 @@
-import './assets/main.css'
-
 import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-
 import App from './App.vue'
-import router from './router'
+import { router } from './router'          
+import { createPinia } from 'pinia'
+import i18n from '@/locales/i18n'
+
+
 
 const app = createApp(App)
-
+app.use(router)                            
 app.use(createPinia())
-app.use(router)
-
+app.use(i18n)                      
 app.mount('#app')
+
+app.directive('debounce', {
+    mounted(el, binding) {
+      let timeout
+
+      const delay = parseInt(binding.value) || 700
+      const handler = () => {
+        clearTimeout(timeout)
+        timeout = setTimeout(() => {
+
+          el.dispatchEvent(new Event('debounced-input'))
+        }, delay)
+      }
+      el.addEventListener('input', handler)
+
+      el._cleanup = () => el.removeEventListener('input', handler)
+    },
+    unmounted(el) {
+      el._cleanup()
+    }
+  })
+  
