@@ -103,6 +103,7 @@ export default {
             chatStorage,
             showGameFinishedModal: false,
             stopTimer: false,
+            endGame: false, // Флаг для отслеживания окончания игры
         }
     },
     props: {
@@ -116,18 +117,14 @@ export default {
             `/topic/games/${this.gameId}`,
             ({ body }) => this.handleGameEvent(JSON.parse(body))
         )
-
-        if (localStorage.getItem('role') === 'host') {
-            this.nextPlayerId = this.playerId
-        }
-        else {
-            this.nextPlayerId = this.opponentId
-        }
-
     },
     unmounted() {
         // 3) отключаемся от веб-сокета
         wsService.disconnect()
+        if (this.endGame) {
+            console.log('Отключаемся от комнаты ВУИГПП', this.gameId);
+            this.disconnect();
+        }
     },
     computed: {
         isMyTurn() {
@@ -210,6 +207,7 @@ export default {
                     this.stopTimer = true;
                     this.clearTimer();
                     console.log('Game finished:', event);
+                    this.endGame = true;
                     this.showGameFinishedModal = true;
 
                     break;
@@ -258,6 +256,8 @@ export default {
                         alert(`${this.opponentName} покинул игру!`);
                         this.opponentId = null;
                         this.opponentName = null;
+                        this.userStorage.setOpponentId(null);
+                        this.userStorage.setOpponentName(null);
                         localStorage.setItem('role', 'host');
                         this.$router.push({ name: 'room', params: { gameId: this.gameId } });
                     }
@@ -321,6 +321,7 @@ export default {
                 }
                 this.inBattleStore.reset();
                 localStorage.removeItem('roomState');
+                wsService.disconnect();
                 this.$router.push({ name: 'room', params: { gameId: gameId } });
                 return;
             } catch (e) {

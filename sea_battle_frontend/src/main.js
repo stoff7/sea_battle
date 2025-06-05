@@ -12,11 +12,6 @@ app.use(createPinia())
 app.use(i18n)                      
 app.mount('#app')
 
-router.afterEach((to) => {
-  const { t } = useI18n()
-  document.title = t('home.title')
-})
-
 app.directive('debounce', {
     mounted(el, binding) {
       let timeout
