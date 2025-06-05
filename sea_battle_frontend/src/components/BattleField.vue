@@ -2,65 +2,95 @@
   <div class="battle-container">
 
     <!-- Игровая сетка -->
-    <div class="grid" @dragover.prevent @dragenter.prevent>
+    <div class="grid" :style="{
+      gridTemplateColumns: `repeat(10, ${cellPx}px)`,
+      gridTemplateRows: `repeat(10, ${cellPx}px)`
+    }" @dragover.prevent @dragenter.prevent>
       <div v-for="idx in gridSize * gridSize" :key="idx" class="cell" :class="{
         hit: hits && hits.includes(idx - 1),
         miss: misses && misses.includes(idx - 1),
-        'ship-hit-cell': isShipHitCell(idx - 1)
-      }">
+        'adjacent-cell': adjacentCells.has(idx - 1),
+        'ship-cell': ships.some(ship => ship.coords.some(([x, y]) => y * gridSize + x === idx - 1))
+      }" @dragover.prevent @drop="onDrop($event, idx - 1)" :style="{ width: cellPx + 'px', height: cellPx + 'px' }">
+        <span v-if="hits && hits.includes(idx - 1)">✸</span>
+        <span v-else-if="misses && misses.includes(idx - 1)">○</span>
       </div>
 
-
       <!-- Отрисовка уже размещённых кораблей -->
-      <div v-for="ship in ships" :key="ship.id" class="ship" :style="shipStyle(ship)">
-        <div v-for="(coord, i) in ship.coords" :key="i" class="cell ship-cell"
-          :class="{ hit: hits && hits.includes(coord[1] * gridSize + coord[0]) }" :data-index="i" :style="{
+      <div v-for="ship in ships" :key="ship.id" class="ship" :style="shipStyle(ship)"
+        @dblclick="!ready && removeShip(ship)" :draggable="!ready" @dragstart="!ready && onShipDragStart(ship, $event)"
+        @click="!ready && rotateShip(ship, $event)" @pointerdown="!ready && onPointerDown($event, ship)">
+        <img :src="getShipImage(ship)" :style="{
+          width: ship.direction === 'horizontal' ? (cellPx * ship.w) + 'px' : cellPx + 'px',
+          height: ship.direction === 'vertical' ? (cellPx * ship.h) + 'px' : cellPx + 'px',
+          objectFit: 'cover',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          pointerEvents: 'none',
+          transition: 'transform 0.2s'
+        }" draggable="false" alt="" />
+        <div v-for="(coord, i) in ship.coords" :key="'hit' + i"
+          v-if="Array.isArray(coord) && coord.length === 2 && hits && hits.includes(coord[1] * gridSize + coord[0])"
+          class="ship-hit-overlay" :style="{
             width: cellPx + 'px',
             height: cellPx + 'px',
             position: 'absolute',
-            top: (coord[1] - ship.coords[0][1]) * cellPx + 'px',
-            left: (coord[0] - ship.coords[0][0]) * cellPx + 'px'
-          }">
-          {{ ship.name }}
-        </div>
+            top: (coord[1] - Math.min(...ship.coords.filter(c => Array.isArray(c) && c.length === 2).map(([, y]) => y))) * cellPx + 'px',
+            left: (coord[0] - Math.min(...ship.coords.filter(c => Array.isArray(c) && c.length === 2).map(([x]) => x))) * cellPx + 'px',
+            background: 'rgba(229,57,53,0.5)',
+            pointerEvents: 'none'
+          }"></div>
       </div>
     </div>
 
     <!-- Список доступных кораблей -->
-    <div class="palette" style="display: grid-template-columns repeat(2, max-content);">
+    <div class="palette" style="display: grid; grid-template-columns: repeat(2, max-content);">
       <div v-for="ship in availableShips" :key="ship.id" class="ship-placeholder" draggable="true"
-        @pointerdown="onPointerDown($event)" @dragstart="onDragStart(ship, $event)"
-        :style="{ width: ship.w * cellPx + 'px', height: ship.h * cellPx + 'px' }">
-        <!-- Клеточная отрисовка плейсхолдера -->
-        <div class="row" v-for="r in ship.h" :key="`r${r}`">
-          <div v-for="c in ship.w" :key="`r${r}c${c}`" class="cell ship-cell" :data-index="c - 1"
-            :style="{ width: cellPx + 'px', height: cellPx + 'px' }">
-            {{ ship.name }}
-          </div>
-        </div>
+        @pointerdown="onPointerDown($event, ship)"
+        @dragstart="onDragStart({ ...ship, direction: 'horizontal', w: Math.max(ship.w, ship.h), h: 1, angle: 90 }, $event)"
+        :style="{ width: (Math.max(ship.w, ship.h) * cellPx) + 'px', height: cellPx + 'px', position: 'relative' }">
+        <img :src="getShipImage({ ...ship, w: Math.max(ship.w, ship.h), h: 1 })" :style="{
+          width: (Math.max(ship.w, ship.h) * cellPx) + 'px',
+          height: cellPx + 'px',
+          objectFit: 'cover',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          pointerEvents: 'none',
+          transition: 'transform 0.2s'
+        }" draggable="false" alt="" />
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import Burning from './Burning.vue';
+
+const shipImages = import.meta.glob('@/assets/ships/*.png', { eager: true, import: 'default' });
 
 export default {
   name: 'BattleField',
+  // components: { Burning },
   props: {
     availableShips: { type: Array, required: true },
     ships: { type: Array, required: true },
     ready: { type: Boolean, required: true },
     misses: { type: Array, required: false },
     hits: { type: Array, required: false },
+    cellPx: { type: Number, default: 40 }
+  },
+  components: {
+    Burning
   },
   data() {
     return {
       gridSize: 10,
-      cellPx: 40,
       dragged: null,
       grabbedIndex: 0,
       adjacentCells: new Set(),
+
     };
   },
   watch: {
@@ -101,89 +131,97 @@ export default {
       return true;
     },
 
-    rotateShip(ship) {
+    rotateShip(ship, event) {
+      if (this.ready) {
+        return;
+      }
+      this.onPointerDown(event, ship);
       const grabbedIndex = this.grabbedIndex ?? 0;
+
       const length = ship.coords.length;
       const [cx, cy] = ship.coords[grabbedIndex];
-      const grabbedCoord = ship.coords[grabbedIndex];
 
-      // +90°
-      let newDirection = ship.direction === 'horizontal' ? 'vertical' : 'horizontal';
-      let newCoords = [];
-      if (newDirection === 'horizontal') {
-        for (let i = 0; i < length; i++) {
-          newCoords.push([cx - grabbedIndex + i, cy]);
+      // Генерируем все три варианта поворота
+      const variants = [
+        // +90°
+        () => {
+          let newDirection = ship.direction === 'horizontal' ? 'vertical' : 'horizontal';
+          let newCoords = [];
+          if (newDirection === 'horizontal') {
+            for (let i = 0; i < length; i++) newCoords.push([cx - grabbedIndex + i, cy]);
+            newCoords.sort((a, b) => a[0] - b[0]);
+          } else {
+            for (let i = 0; i < length; i++) newCoords.push([cx, cy - grabbedIndex + i]);
+            newCoords.sort((a, b) => a[1] - b[1]);
+          }
+          return {
+            direction: newDirection,
+            coords: newCoords,
+            w: newDirection === 'horizontal' ? length : 1,
+            h: newDirection === 'vertical' ? length : 1,
+          };
+        },
+        // -90°
+        () => {
+          let newDirection = ship.direction === 'horizontal' ? 'vertical' : 'horizontal';
+          let newCoords = [];
+          if (newDirection === 'horizontal') {
+            for (let i = 0; i < length; i++) newCoords.push([cx - grabbedIndex + (length - 1 - i), cy]);
+            newCoords.sort((a, b) => a[0] - b[0]);
+          } else {
+            for (let i = 0; i < length; i++) newCoords.push([cx, cy - grabbedIndex + (length - 1 - i)]);
+            newCoords.sort((a, b) => a[1] - b[1]);
+          }
+          return {
+            direction: newDirection,
+            coords: newCoords,
+            w: newDirection === 'horizontal' ? length : 1,
+            h: newDirection === 'vertical' ? length : 1,
+          };
+        },
+        // 180°
+        () => {
+          let newDirection = ship.direction;
+          let newCoords = [];
+          if (newDirection === 'horizontal') {
+            for (let i = 0; i < length; i++) newCoords.push([cx - (i - grabbedIndex), cy]);
+            newCoords.sort((a, b) => a[0] - b[0]);
+          } else {
+            for (let i = 0; i < length; i++) newCoords.push([cx, cy - (i - grabbedIndex)]);
+            newCoords.sort((a, b) => a[1] - b[1]);
+          }
+          return {
+            direction: newDirection,
+            coords: newCoords,
+            w: newDirection === 'horizontal' ? length : 1,
+            h: newDirection === 'vertical' ? length : 1,
+          };
         }
-        // сортировка по x
-        newCoords.sort((a, b) => a[0] - b[0]);
-      } else {
-        for (let i = 0; i < length; i++) {
-          newCoords.push([cx, cy - grabbedIndex + i]);
-        }
-        // сортировка по y
-        newCoords.sort((a, b) => a[1] - b[1]);
-      }
-      if (this.boundCheck(newCoords, ship.id) && !this.coordsEqual(ship.coords, newCoords)) {
-        this.$emit('rotate-ship', {
-          ...ship,
-          direction: newDirection,
-          w: newDirection === 'horizontal' ? length : 1,
-          h: newDirection === 'vertical' ? length : 1,
-          coords: newCoords
-        });
-        this.updateAdjacentHighlight();
-        return;
+      ];
+
+      // Перемешиваем варианты случайным образом
+      for (let i = variants.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [variants[i], variants[j]] = [variants[j], variants[i]];
       }
 
-      // -90°
-      newCoords = [];
-      if (newDirection === 'horizontal') {
-        for (let i = 0; i < length; i++) {
-          newCoords.push([cx - grabbedIndex + (length - 1 - i), cy]);
+      // Пробуем варианты по очереди
+      for (const variantFn of variants) {
+        const v = variantFn();
+        if (
+          this.boundCheck(v.coords, ship.id) &&
+          !this.coordsEqual(ship.coords, v.coords)
+        ) {
+          this.$emit('rotate-ship', {
+            ...ship,
+            direction: v.direction,
+            w: v.w,
+            h: v.h,
+            coords: v.coords
+          });
+          this.updateAdjacentHighlight();
+          return;
         }
-        newCoords.sort((a, b) => a[0] - b[0]);
-      } else {
-        for (let i = 0; i < length; i++) {
-          newCoords.push([cx, cy - grabbedIndex + (length - 1 - i)]);
-        }
-        newCoords.sort((a, b) => a[1] - b[1]);
-      }
-      if (this.boundCheck(newCoords, ship.id) && !this.coordsEqual(ship.coords, newCoords)) {
-        this.$emit('rotate-ship', {
-          ...ship,
-          direction: newDirection,
-          w: newDirection === 'horizontal' ? length : 1,
-          h: newDirection === 'vertical' ? length : 1,
-          coords: newCoords
-        });
-        this.updateAdjacentHighlight();
-        return;
-      }
-
-      // 180°
-      newDirection = ship.direction;
-      newCoords = [];
-      if (newDirection === 'horizontal') {
-        for (let i = 0; i < length; i++) {
-          newCoords.push([cx - (i - grabbedIndex), cy]);
-        }
-        newCoords.sort((a, b) => a[0] - b[0]);
-      } else {
-        for (let i = 0; i < length; i++) {
-          newCoords.push([cx, cy - (i - grabbedIndex)]);
-        }
-        newCoords.sort((a, b) => a[1] - b[1]);
-      }
-      if (this.boundCheck(newCoords, ship.id) && !this.coordsEqual(ship.coords, newCoords)) {
-        this.$emit('rotate-ship', {
-          ...ship,
-          direction: newDirection,
-          w: newDirection === 'horizontal' ? length : 1,
-          h: newDirection === 'vertical' ? length : 1,
-          coords: newCoords
-        });
-        this.updateAdjacentHighlight();
-        return;
       }
 
       // Если ни один вариант не подошёл
@@ -210,19 +248,26 @@ export default {
       return cellIndices.every(i => !forbidden.has(i));
     },
     // Сохраняем индекс захваченной ячейки
-    onPointerDown(e) {
-      const cell = e.target.closest('.ship-cell');
-      if (cell && cell.dataset.index !== undefined) {
-        this.grabbedIndex = Number(cell.dataset.index);
+    onPointerDown(e, ship) {
+      // Получаем координаты клика относительно корабля
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / this.cellPx);
+      const y = Math.floor((e.clientY - rect.top) / this.cellPx);
+
+      if (ship.direction === 'horizontal') {
+        this.grabbedIndex = x;
       } else {
-        // для плейсхолдера возьмем первую клетку
-        this.grabbedIndex = 0;
+        this.grabbedIndex = y;
       }
     },
     onShipDragStart(ship, ev) {
       if (this.ready) {
         return;
       }
+      this.onPointerDown(ev, ship);
+      console.log('Dragging ship:', ship);
+      console.log('Grabbed index:', this.grabbedIndex);
+
 
       this.dragged = ship;
       ev.dataTransfer.effectAllowed = 'move';
@@ -257,6 +302,7 @@ export default {
       this.updateAdjacentHighlight();
     },
     onDragStart(ship, ev) {
+      this.onPointerDown(ev, ship);
       this.dragged = ship;
       ev.dataTransfer.effectAllowed = 'move';
       ev.dataTransfer.setData('application/json',
@@ -275,7 +321,10 @@ export default {
         // Определяем длину корабля
         const length = Math.max(payload.ship.w, payload.ship.h);
         let newCoords = [];
-        if (payload.ship.direction === 'horizontal') {
+        let direction = payload.ship.direction;
+        let angle = payload.ship.angle ?? 90; // по умолчанию горизонтально
+
+        if (direction === 'horizontal') {
           for (let i = 0; i < length; i++) {
             newCoords.push([col - payload.grabbedIndex + i, row]);
           }
@@ -284,11 +333,19 @@ export default {
             newCoords.push([col, row - payload.grabbedIndex + i]);
           }
         }
+
         if (!this.boundCheck(newCoords, null)) {
           return;
         }
         this.$emit('place-ship', {
-          ship: payload.ship,
+          ship: {
+            ...payload.ship,
+            coords: newCoords,
+            direction,
+            angle,
+            w: direction === 'horizontal' ? length : 1,
+            h: direction === 'vertical' ? length : 1,
+          },
           row, col,
           grabbedIndex: payload.grabbedIndex
         });
@@ -297,18 +354,25 @@ export default {
       this.resetDragState();
     },
     shipStyle(ship) {
-      const [x0, y0] = ship.coords[0];
+      // Найти минимальные x и y
+      const minX = Math.min(...ship.coords.map(([x]) => x));
+      const minY = Math.min(...ship.coords.map(([, y]) => y));
+      const w = ship.direction === 'horizontal' ? ship.w : 1;
+      const h = ship.direction === 'vertical' ? ship.h : 1;
       return {
         position: 'absolute',
-        top: y0 * this.cellPx + 'px',
-        left: x0 * this.cellPx + 'px',
-        display: 'flex'
+        top: (minY * this.cellPx) + 'px',
+        left: (minX * this.cellPx) + 'px',
+        width: (w * this.cellPx) + 'px',
+        height: (h * this.cellPx) + 'px',
+        pointerEvents: 'auto',
+        zIndex: 10,
       };
     },
     getAdjacentCells(ship) {
       const deltas = [
         [-1, -1], [-1, 0], [-1, 1],
-        [0, -1], /*self*/[0, 1],
+        [0, -1], [0, 1],
         [1, -1], [1, 0], [1, 1],
       ];
       const neighbors = new Set();
@@ -359,7 +423,15 @@ export default {
         return false;
       }
       return true;
-    }
+    },
+    getShipImage(ship) {
+      const length = Math.max(ship.w, ship.h);
+      if (ship.direction === 'horizontal') {
+        return shipImages[`/src/assets/ships/ship_${length}x1_h.png`];
+      } else {
+        return shipImages[`/src/assets/ships/ship_${length}x1_v.png`];
+      }
+    },
   }
 };
 </script>
@@ -373,22 +445,31 @@ export default {
 .grid {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(10, 40px);
-  grid-template-rows: repeat(10, 40px);
   gap: 0px;
-  background: #eef;
+  background: #4c9baf;
+}
+
+.cell.ship-cell {
+  background: rgba(118, 32, 32, 0.856);
 }
 
 .cell {
-  width: 40px;
-  height: 40px;
-  background: #fff;
-  border: 1px solid #ccc;
+  background: #4c9baf !important;
+  border: 0.01px solid #cccccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .ship {
   cursor: grab;
   position: absolute;
+}
+
+.ship-hit-overlay {
+  z-index: 20;
+  border-radius: 4px;
+  animation: splash-hit 0.4s;
 }
 
 .ship-cell.hit {
@@ -399,15 +480,13 @@ export default {
 }
 
 .ship-cell {
-  /* background: #4c9baf;  <-- убрать отсюда */
-  z-index: 10;
   color: white;
-  border: 1px solid #333;
-  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   user-select: none;
+  /* Прозрачный фон у корабля, но перекроем inline-стилем */
+  transition: background 0.2s;
 }
 
 .ship-cell:not(.hit) {
@@ -429,7 +508,6 @@ export default {
 }
 
 .palette {
-  /* Две колонки без grid-template-columns */
   column-count: 2;
   column-gap: 8px;
 }
@@ -438,15 +516,13 @@ export default {
   user-select: none;
   cursor: grab;
   background: transparent;
-  /* Не разрывать между колонками */
   break-inside: avoid;
   -webkit-column-break-inside: avoid;
   margin-bottom: 4px;
-  /* уменьшенный gap между рядами */
 }
 
 .adjacent-cell {
-  background-color: rgba(129, 128, 128, 0.036);
+  background-color: #2f586261 !important;
 }
 
 .cell.hit {
@@ -458,13 +534,14 @@ export default {
 
 .cell.miss {
   background: repeating-linear-gradient(135deg,
-      #b0bec5 0px,
-      #b0bec5 10px,
-      #cfd8dc 10px,
-      #cfd8dc 20px);
-  color: #607d8b;
+      #b0bec58b 0px,
+      #b0bec582 10px,
+      #cfd8dc89 10px,
+      #cfd8dc7c 20px) !important;
+  color: #607d8b !important;
   animation: splash-miss 0.4s;
 }
+
 
 @keyframes splash-hit {
   0% {

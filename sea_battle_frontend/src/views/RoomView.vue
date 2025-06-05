@@ -1,72 +1,76 @@
 <template>
     <div class="room-view container">
-        <!-- Таблица с игроками в комнате -->
-        <div>
-            <button class="disconnect-btn" @click="disconnect">
-                Выйти
-            </button>
+        <div class="upper">
+            <button class="disconnect-btn" @click="disconnect">{{ $t('room.leave') }}</button>
+            <div class="room-header">
+                <h1>{{ $t('room.game_number') }}: <span>{{ gameId }}</span></h1>
+            </div>
+            <LanguageButton />
         </div>
-        <div class="players-table">
-            <h3>Игроки в комнате:</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Имя игрока</th>
-                        <th>Готовность</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>
-                            {{ playerId ? username : '—' }}
-                        </td>
-                        <td>
-                            <span :style="{ color: isReady ? 'green' : 'red' }">
-                                {{ isReady ? 'Готов' : 'Не готов' }}
-                            </span>
-                        </td>
-                    </tr>
-                    <tr v-if="opponentId">
-                        <td>
-                            {{ opponentUsername }}
-                        </td>
-                        <td>
-                            <span :style="{ color: opponentReady ? 'green' : 'red' }">
-                                {{ opponentReady ? 'Готов' : 'Не готов' }}
-                            </span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <!-- Room Number -->
-        <div class="room-header">
-            <h1>НОМЕР КОМНАТЫ: <span class="room-id">{{ gameId }}</span></h1>
-        </div>
+        <div class="room-grid" :class="{ 'room-grid-wide': availableShips.length !== 0 }">
+            <!-- 1. Колонка: Правила игры -->
+            <div class="rules-panel">
+                <div class="rules-title">{{ $t('room.rules_title') }}</div>
+                <div class="rules-content">
+                    {{ $t('room.rules_text') }}
+                </div>
+            </div>
 
-        <!-- Instruction -->
-        <div class="instruction">
-            <h2>РАССТАВЬТЕ СВОИ КОРАБЛИ!</h2>
-        </div>
+            <!-- 2. Колонка: Поле и кнопки -->
+            <div class="center-panel">
+                <div class="main">
+                    <div class="battlefield-large">
+                        <BattleField :cellPx="48" :available-ships="availableShips" :ships="ships" :ready="isReady"
+                            @place-ship="placeShipOnField" @remove-ship="toggleShip" @rotate-ship="onRotateShip" />
+                    </div>
+                </div>
+                <div class="main-buttons">
+                    <button class="clear-btn" @click="clearField">{{ $t('room.clear_field') }}</button>
+                    <button class="randomize-btn" @click="randomizeShips">{{ $t('room.randomize_ships') }}</button>
+                </div>
+                <div class="ready-btn-row">
+                    <button class="ready-btn" :class="{ ready: isReady, 'not-ready': !isReady }" @click="toggleReady">
+                        {{ isReady ? $t('room.ready') : $t('room.not_ready') }}
+                    </button>
+                </div>
+            </div>
 
-        <!-- Main area: Поле для расстановки кораблей -->
-        <div class="main">
-            <BattleField :available-ships="availableShips" :ships="ships" :ready="isReady"
-                @place-ship="placeShipOnField" @remove-ship="toggleShip" @rotate-ship="onRotateShip" />
+            <!-- 3. Колонка: Список игроков и чат -->
+            <div class="right-panel">
+                <div class="players-table">
+                    <h3>{{ $t('room.players_in_room') }}</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>{{ $t('room.player_name') }}</th>
+                                <th>{{ $t('room.readiness') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>{{ playerId ? username : '—' }}</td>
+                                <td>
+                                    <span :style="{ color: isReady ? 'green' : 'red' }">
+                                        {{ isReady ? $t('room.table_ready') : $t('room.table_not_ready') }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr v-if="opponentId">
+                                <td>{{ opponentUsername }}</td>
+                                <td>
+                                    <span :style="{ color: opponentReady ? 'green' : 'red' }">
+                                        {{ opponentReady ? $t('room.table_ready') : $t('room.table_not_ready') }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <Chat :game-id="gameId" :player-id="playerId" :username="username" :ws="wsService.client"
+                    :messages="chatStorage.messages" @send="sendChatMessage"
+                    :placeholder="$t('room.chat_placeholder')" />
+            </div>
         </div>
-        <div class="buttons-row">
-            <button class="clear-btn" @click="clearField">
-                Очистить поле
-            </button>
-            <button class="randomize-btn" @click="randomizeShips">
-                Расставить случайно
-            </button>
-        </div>
-
-        <!-- Кнопка готовности -->
-        <button class="ready-btn" :class="{ ready: isReady, 'not-ready': !isReady }" @click="toggleReady">
-            {{ isReady ? 'Готов' : 'Не готов' }}
-        </button>
     </div>
 </template>
 
@@ -81,18 +85,23 @@ document.addEventListener('selectstart', e => {
 
 </script>
 <script>
+import LanguageButton from '@/components/LanguageButton.vue';
 import BattleField from '@/components/BattleField.vue';
+import Chat from '@/components/Chat.vue';
 import axios from 'axios';
 import { wsService } from '@/wsService.js';
 import { useUsersStore } from '@/stores/users';
+import { useChatStore } from '@/stores/chat';
+import { useInBattleStore } from '@/stores/inbattle';
 
 export default {
     name: 'RoomView',
-    components: { BattleField },
+    components: { BattleField, Chat, LanguageButton },
     props: {
         gameId: { type: String, required: true }
     },
     mounted() {
+
         wsService.connect(this.api, this.gameId)
 
         // 2) подписываемся на событие игры
@@ -106,13 +115,24 @@ export default {
             this.ships = savedShips;
             this.availableShips = [];
         }
-
+        else {
+            this.randomizeShips();
+        }
+        window.addEventListener('beforeunload', this.handleBeforeUnload);
+        if (this.chatStorage.messages.length !== 0) {
+            this.chatMessages = this.chatStorage.messages;
+        }
+        if (localStorage.getItem('roomState')) this.loadRoomState();
+        console.log(this.gameId, this.playerId, this.username, this.role);
     },
     unmounted() {
-        this.disconnect();
+        wsService.disconnect();
+        window.removeEventListener('beforeunload', this.handleBeforeUnload);
     },
     data() {
         const userStorage = useUsersStore();
+        const chatStorage = useChatStore();
+        const inBattleStore = useInBattleStore();
         return {
             api: import.meta.env.VITE_API,
             username: userStorage.username,
@@ -123,40 +143,62 @@ export default {
             opponentReady: false,
             playerId: userStorage.playerId,
             isReady: false,
+
             role: userStorage.role,
             ships: [],  // размещённые на поле
             availableShips: [
-                { id: 1, name: '4×1', w: 4, h: 1, direction: 'horizontal' },
-                { id: 2, name: '3×1', w: 3, h: 1, direction: 'horizontal' },
-                { id: 3, name: '3×1', w: 3, h: 1, direction: 'horizontal' },
-                { id: 4, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
-                { id: 5, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
-                { id: 6, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
-                { id: 7, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
-                { id: 8, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
-                { id: 9, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
-                { id: 10, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
+                { id: 1, name: '4×1', w: 4, h: 1, direction: 'horizontal', angle: 90, size: 4 },
+                { id: 2, name: '3×1', w: 3, h: 1, direction: 'horizontal', angle: 90, size: 3 },
+                { id: 3, name: '3×1', w: 3, h: 1, direction: 'horizontal', angle: 90, size: 3 },
+                { id: 4, name: '2×1', w: 2, h: 1, direction: 'horizontal', angle: 90, size: 2 },
+                { id: 5, name: '2×1', w: 2, h: 1, direction: 'horizontal', angle: 90, size: 2 },
+                { id: 6, name: '2×1', w: 2, h: 1, direction: 'horizontal', angle: 90, size: 2 },
+                { id: 7, name: '1×1', w: 1, h: 1, direction: 'horizontal', angle: 90, size: 1 },
+                { id: 8, name: '1×1', w: 1, h: 1, direction: 'horizontal', angle: 90, size: 1 },
+                { id: 9, name: '1×1', w: 1, h: 1, direction: 'horizontal', angle: 90, size: 1 },
+                { id: 10, name: '1×1', w: 1, h: 1, direction: 'horizontal', angle: 90, size: 1 },
             ],
             ws: null,
             userStorage: userStorage,
+            chatStorage: chatStorage,
+            inBattleStore: inBattleStore,
+            chatMessages: [],
         };
     },
     methods: {
-        disconnect() {
-            // const response = axios.post('https://' + this.api + '/api/v1/' + '/leave_game', {
-            //     playerId: this.playerId,
-            //     gameId: this.gameId
-            // });
-            // this.$router.push({ name: 'home' });
-            wsService.disconnect();
+        handleBeforeUnload(event) {
+            // Синхронный запрос — только так браузер гарантирует выполнение!
+            navigator.sendBeacon(
+                `https://${this.api}/api/v1/${this.gameId}/leave_game`,
+                JSON.stringify({ playerId: this.playerId })
+            );
+            // Можно не ставить event.preventDefault(), современные браузеры игнорируют кастомные сообщения
+        },
+        async disconnect() {
+            try {
+                const response = await axios.post('https://' + this.api + '/api/v1/' + this.gameId + '/leave_game', {
+                    playerId: this.playerId,
+                });
+                console.log('Отключаемся от комнаты', this.gameId);
+                console.log('response', response);
+                wsService.disconnect();
+                this.$router.push({ name: 'home' });
+            } catch (error) {
+                console.error('Ошибка при отключении от комнаты:', error);
+            }
         },
         onRotateShip(updatedShip) {
             this.ships = this.ships.map(ship =>
                 ship.id === updatedShip.id ? updatedShip : ship
             );
             console.log('Повернули корабль', updatedShip);
+            this.saveRoomState();
         },
         randomizeShips() {
+            if (this.isReady) {
+                alert('Сначала снимите готовность!');
+                return;
+            }
             const directions = [
                 [1, 0], [-1, 0], [0, 1], [0, -1],
                 [1, 1], [-1, -1], [1, -1], [-1, 1]
@@ -221,21 +263,61 @@ export default {
                     });
                 }
             }
+            this.saveRoomState();
+        },
+        saveRoomState() {
+            const state = {
+                ships: this.ships,
+                availableShips: this.availableShips,
+                isReady: this.isReady,
+                opponentId: this.opponentId,
+                opponentUsername: this.opponentUsername,
+                opponentReady: this.opponentReady,
+                playerId: this.playerId,
+                username: this.username,
+                role: this.role,
+                gameId: this.gameId,
+                chatMessages: this.chatStorage.messages
+            };
+            localStorage.setItem('roomState', JSON.stringify(state));
+        },
+
+        // Загружает все данные комнаты из localStorage
+        loadRoomState() {
+            const state = JSON.parse(localStorage.getItem('roomState'));
+            if (state) {
+                this.ships = state.ships || [];
+                this.availableShips = state.availableShips || [];
+                this.isReady = state.isReady || false;
+                this.opponentId = state.opponentId || null;
+                this.opponentUsername = state.opponentUsername || null;
+                this.opponentReady = state.opponentReady || false;
+                this.playerId = state.playerId || null;
+                this.username = state.username || '';
+                this.role = state.role || '';
+                this.chatStorage.messages = state.chatMessages || [];
+                // gameId менять не нужно, он приходит из props
+            }
         },
         clearField() {
+            if (this.isReady) {
+                alert('Сначала снимите готовность!');
+                return;
+            }
             this.ships = [];
             this.availableShips = [
-                { id: 1, name: '4×1', w: 4, h: 1, direction: 'horizontal' },
-                { id: 2, name: '3×1', w: 3, h: 1, direction: 'horizontal' },
-                { id: 3, name: '3×1', w: 3, h: 1, direction: 'horizontal' },
-                { id: 4, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
-                { id: 5, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
-                { id: 6, name: '2×1', w: 2, h: 1, direction: 'horizontal' },
-                { id: 7, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
-                { id: 8, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
-                { id: 9, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
-                { id: 10, name: '1×1', w: 1, h: 1, direction: 'horizontal' },
+                { id: 1, name: '4×1', w: 4, h: 1, direction: 'horizontal', angle: 90, size: 4 },
+                { id: 2, name: '3×1', w: 3, h: 1, direction: 'horizontal', angle: 90, size: 3 },
+                { id: 3, name: '3×1', w: 3, h: 1, direction: 'horizontal', angle: 90, size: 3 },
+                { id: 4, name: '2×1', w: 2, h: 1, direction: 'horizontal', angle: 90, size: 2 },
+                { id: 5, name: '2×1', w: 2, h: 1, direction: 'horizontal', angle: 90, size: 2 },
+                { id: 6, name: '2×1', w: 2, h: 1, direction: 'horizontal', angle: 90, size: 2 },
+                { id: 7, name: '1×1', w: 1, h: 1, direction: 'horizontal', angle: 90, size: 1 },
+                { id: 8, name: '1×1', w: 1, h: 1, direction: 'horizontal', angle: 90, size: 1 },
+                { id: 9, name: '1×1', w: 1, h: 1, direction: 'horizontal', angle: 90, size: 1 },
+                { id: 10, name: '1×1', w: 1, h: 1, direction: 'horizontal', angle: 90, size: 1 },
             ];
+            this.saveRoomState();
         },
         async toggleReady() {
             console.log('playerId', this.playerId);
@@ -247,59 +329,86 @@ export default {
             this.isReady = !this.isReady;
             console.log(this.playerId, this.isReady, this.ships);
             try {
+                console.log(this.convertShipsForApi(this.ships))
                 const response = await axios.post('https://' + this.api + '/api/v1/' + this.gameId + '/ready_game', {
                     playerId: this.playerId,
                     ready: this.isReady,
-                    cells: this.convertShipsToCoordinates(this.ships)
+                    ships: this.convertShipsForApi(this.ships)
                 });
-                console.log(response.data)
             }
             catch (error) {
                 console.error('Ожидаем готовность другого игрока', error);
                 alert('Ожидаем готовность другого игрока');
             }
+            this.saveRoomState();
         },
         handleGameEvent(event) {
             console.log('Событие', event);
+            console.log(this.role)
             switch (event.type) {
                 case 'playerJoined':
                     if (this.role === 'host') {
-                        this.opponentId = event.playerId
-                        this.opponentUsername = event.userName
+                        console.log('opponent', event.data.playerId, event.data.userName);
+                        this.opponentId = event.data.playerId
+                        this.opponentUsername = event.data.userName
+                        console.log('opponentUsername', this.opponentUsername, this.opponentId);
+                        this.saveRoomState();
                     }
                     break
 
                 case 'playerReady':
                     if (this.role === 'host') {
-                        this.opponentReady = event.secondOwnerReady;
+                        this.opponentReady = event.data.secondOwnerReady;
                     }
                     else {
-                        this.opponentReady = event.firstOwnerReady;
+                        this.opponentReady = event.data.firstOwnerReady;
                     }
-                    if (event.firstOwnerReady === event.secondOwnerReady && event.gameStatus === 'ACTIVE') {
+                    if (event.data.firstOwnerReady === event.data.secondOwnerReady && event.data.gameStatus === 'ACTIVE') {
                         this.$router.push({ name: 'inbattle', params: { gameId: this.gameId, myShips: this.ships } });
                     }
+                    this.saveRoomState();
                     break
 
                 case 'gameStarted':
+                    this.inBattleStore.reset();
+                    localStorage.removeItem('nextPlayerId');
+                    localStorage.removeItem('enemyHits');
+                    localStorage.removeItem('enemyMisses');
+                    localStorage.removeItem('myHits');
+                    localStorage.removeItem('myMisses');
+                    localStorage.removeItem('myShipsWithStatus');
+                    localStorage.removeItem('enemyShips');
+                    localStorage.removeItem('playerId');
+                    localStorage.setItem('role', this.role);
                     this.$router.push({ name: 'inbattle', params: { gameId: this.gameId } });
                     break
 
-                case 'shotFired':
-                    // сохраняем выстрел, можно отрисовать на доске
-                    this.shots.push({
-                        x: event.x,
-                        y: event.y,
-                        result: event.result,
-                        by: event.by
-                    })
-                    // сохраняем чей ход следующий
-                    this.nextPlayerId = event.nextPlayerId
-                    break
+                case 'playerLeft': {
+                    if (event.data.playerId === this.playerId) {
+                        console.log('You left the game:', event);
+                        this.$router.push({ name: 'home' });
+                    } else {
+                        console.log('Opponent left the game:', event);
+                        alert(`${this.opponentUsername} покинул игру!`);
+                        this.opponentId = null;
+                        this.opponentName = null;
+                        this.role = 'host';
+                        this.userStorage.setRole('host');
+                    }
+                    this.saveRoomState();
+                    break;
+                }
+                case 'chatMessage': {
+                    this.chatStorage.addMessage({
+                        fromPlayer: event.data.fromPlayer,
+                        text: event.data.text,
+                        timestamp: event.data.timestamp
+                    });
+                    this.saveRoomState();
+                    break;
+                }
 
-                case 'gameFinished':
-                    this.$router.push({ name: 'home' });
-                    break
+
 
                 default:
                     console.warn('Неизвестный тип события', event.type)
@@ -313,6 +422,19 @@ export default {
                 });
                 return accumulator;
             }, []);
+        },
+        convertShipsForApi(ships) {
+            // Определи соответствие type по длине корабля
+            const typeByLength = {
+                4: 'FOUR_DECK',
+                3: 'THREE_DECK',
+                2: 'TWO_DECK',
+                1: 'ONE_DECK'
+            };
+            return ships.map(ship => ({
+                type: typeByLength[Math.max(ship.w, ship.h)],
+                cells: ship.coords.map(([x, y]) => ({ x, y }))
+            }));
         },
         placeShipOnField({ ship, row, col, grabbedIndex }) {
             // вычисляем координаты в пикселях (40px — размер клетки)
@@ -332,10 +454,12 @@ export default {
             this.ships.push({
                 ...ship,
                 id: Date.now() + Math.random(), // уникальный
-                coords
+                coords,
+                angle: ship.angle ?? 90
             });
             // если нужно убрать из палитры:
             this.availableShips = this.availableShips.filter(s => s.id !== ship.id);
+            this.saveRoomState();
         },
         toggleShip(ship) {
             // удаляем с поля
@@ -348,155 +472,112 @@ export default {
                 h: ship.direction === 'horizontal' ? ship.h : ship.w,
                 direction: 'horizontal'
             });
-        }
+            this.saveRoomState();
+        },
+        async sendChatMessage(text) {
+            try {
+                console.log('Отправляем сообщение в чат:', text);
+                console.log('gameId', this.gameId);
+                console.log('playerId', this.playerId);
+                await axios.post(`https://${this.api}/api/v1/${this.gameId}/chat_message`, {
+                    playerId: this.playerId,
+                    textMessage: text
+                });
+                // Не пушим в chatMessages — сообщение придёт через WebSocket!
+            } catch (e) {
+                alert('Ошибка отправки сообщения');
+            }
+        },
     }
 };
 </script>
 
-<style scoped>
-.room-header {
-    text-align: center;
-    margin-bottom: 18px;
-    background: linear-gradient(90deg, #1976d2 0%, #42a5f5 100%);
-    padding: 18px 0 10px 0;
-    border-radius: 10px 10px 0 0;
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
-}
-
-.room-header h1 {
-    color: #fff;
-    font-size: 2.1rem;
-    letter-spacing: 2px;
+<style>
+/* Фон всей страницы */
+body {
+    background: url(@/assets/images/sea_battle_background.jpeg) no-repeat center center fixed;
+    background-color: #22334a;
+    background-size: cover;
     margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+    min-height: 100vh;
 }
 
-.room-id {
-    font-weight: bold;
-    background: #fff;
-    color: #1976d2;
-    padding: 2px 12px;
-    border-radius: 8px;
-    margin-left: 10px;
-    font-size: 1.2em;
-    box-shadow: 0 1px 4px rgba(25, 118, 210, 0.10);
+/* Контейнер комнаты */
+.room-view.container {
+    box-sizing: border-box;
+    padding: 48px 36px 32px 36px;
+    background: transparent;
+    position: relative;
+    z-index: 1;
+    overflow: visible;
+
+
 }
 
-.instruction {
+
+/* Заголовки */
+.room-header h1 {
+    font-family: 'Impact', 'Arial Black', sans-serif;
+    font-size: 64px;
+    color: #e0d8cc;
+    letter-spacing: 10px;
+    text-transform: uppercase;
     text-align: center;
-    margin-bottom: 22px;
+    font-weight: 900;
+    margin: 0 0 18px 0;
+    line-height: 1.08;
+    filter: drop-shadow(0 6px 24px #12325a);
+    background: none;
 }
 
 .instruction h2 {
-    color: #1976d2;
-    font-size: 1.5rem;
-    letter-spacing: 1px;
-    margin: 0;
-    font-weight: 600;
-    text-shadow: 0 2px 8px rgba(25, 118, 210, 0.10);
-}
-
-.main {
-    border: 1px solid #1976d2;
-    background: #f5faff;
-    padding: 18px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 24px;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
-}
-
-.ready-btn {
-    padding: 12px 28px;
-    border: none;
-    cursor: pointer;
-    font-size: 1.1rem;
-    border-radius: 8px;
-    margin: 0 auto 18px auto;
-    display: block;
-    transition: background 0.2s, box-shadow 0.2s;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
-}
-
-.ready-btn.ready {
-    background-color: #43a047;
-    color: white;
-}
-
-.ready-btn.not-ready {
-    background-color: #e53935;
-    color: white;
-}
-
-.footer {
+    color: #90caf9;
+    margin-bottom: 10px;
+    font-weight: 800;
+    text-shadow: 0 1px 4px #1565c0;
+    font-size: 2em;
+    letter-spacing: 2px;
     text-align: center;
-    margin-top: 18px;
 }
 
-.start-game-btn {
-    padding: 12px 36px;
-    font-size: 1.15rem;
-    cursor: pointer;
-    background-color: #1976d2;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
-    transition: background 0.2s, box-shadow 0.2s;
-    font-weight: 600;
-}
-
-.start-game-btn:hover {
-    background-color: #1565c0;
-    box-shadow: 0 4px 16px rgba(25, 118, 210, 0.15);
-}
-
-.start-game-btn:active {
-    background-color: #0d47a1;
-}
-
+/* Таблица игроков */
 .players-table {
-    margin: 0 auto 24px auto;
-    max-width: 420px;
-    background: #f5faff;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
-    padding: 18px 24px;
+    width: 90%;
+    margin-bottom: 0;
+    margin-top: 0;
 }
 
 .players-table h3 {
     text-align: center;
-    color: #1976d2;
-    margin-bottom: 12px;
+    color: #90caf9;
+    margin-bottom: 10px;
     font-size: 1.2rem;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 1px;
 }
 
 .players-table table {
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    background: #fff;
+    border-collapse: collapse;
+    background: #22334a;
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 1px 4px rgba(25, 118, 210, 0.08);
 }
 
 .players-table th,
 .players-table td {
-    padding: 12px 10px;
+    padding: 10px 8px;
     text-align: center;
-    font-size: 1.05rem;
+    font-size: 1.08rem;
 }
 
 .players-table th {
-    background: #e3f2fd;
-    color: #1976d2;
-    font-weight: 700;
-    border-bottom: 2px solid #90caf9;
+    background: #1565c0;
+    color: #e3f2fd;
+    font-weight: 800;
+    border-bottom: 1px solid #1976d2;
     letter-spacing: 1px;
 }
 
@@ -505,73 +586,379 @@ export default {
 }
 
 .players-table tbody tr:nth-child(even) {
-    background: #f0f7fa;
+    background: #1a2636;
 }
 
 .players-table tbody tr:nth-child(odd) {
-    background: #ffffff;
+    background: #22334a;
 }
 
 .players-table td {
-    color: #333;
-    font-weight: 500;
+    color: #b3e5fc;
+    font-weight: 600;
 }
 
 .players-table span {
-    font-weight: 600;
-    font-size: 1.05em;
+    font-weight: 700;
+    font-size: 1em;
     letter-spacing: 0.5px;
 }
 
 .players-table tr:hover {
-    background: #e3f2fd;
+    background: #1976d2;
+    color: #fff;
 }
 
-.buttons-row {
-    display: flex;
-    justify-content: center;
-    gap: 18px;
-    margin-bottom: 24px;
-    margin-top: 10px;
+/* Кнопки */
+button,
+button.clear-btn,
+button.randomize-btn,
+button.ready-btn,
+button.disconnect-btn,
+button.start-game-btn {
+    padding: 12px 32px;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+    box-shadow: 0 2px 8px #1976d244;
+    margin: 0 8px;
+    background: linear-gradient(120deg, #217dbb 0%, #3498db 100%);
+    color: #fff;
+    text-shadow: 0 1px 4px #000a;
+}
+
+button:hover {
+    background: linear-gradient(120deg, #6dd5fa 0%, #217dbb 100%);
+    color: #fff;
 }
 
 .buttons-row button {
-    padding: 10px 32px;
-    background-color: #fff;
-    color: #1976d2;
-    border: 2px solid #1976d2;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-    box-shadow: 0 1px 4px rgba(25, 118, 210, 0.08);
-    margin: 0;
-    min-width: 170px;
+    width: 220px;
+    height: 60px;
+    min-width: 180px;
+    max-width: 100%;
+    font-size: 1.08em;
+    box-sizing: border-box;
 }
 
-.buttons-row button:hover {
-    background-color: #1976d2;
+.buttons-row button:hover,
+.start-game-btn:hover {
+    background: linear-gradient(120deg, #6dd5fa 0%, #217dbb 100%);
     color: #fff;
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
 }
 
 .disconnect-btn {
-    padding: 10px 28px;
-    background-color: #e53935;
+    background: #e53935;
     color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s, box-shadow 0.2s;
-    box-shadow: 0 2px 8px rgba(229, 57, 53, 0.10);
-    margin-bottom: 18px;
+    margin-bottom: 12px;
 }
 
 .disconnect-btn:hover {
-    background-color: #b71c1c;
-    box-shadow: 0 4px 16px rgba(229, 57, 53, 0.18);
+    background: #b71c1c;
+}
+
+.ready-btn.ready {
+    background: #43a047;
+    color: white;
+}
+
+.ready-btn.not-ready {
+    background: #e53935;
+    color: white;
+}
+
+/* Основная зона */
+.main-row {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 48px;
+    margin-bottom: 32px;
+}
+
+.side-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    min-width: 250px;
+    max-width: 420px;
+    width: 100%;
+    gap: 18px;
+}
+
+
+
+/* Чат */
+.chat-container {
+    margin-top: 10px;
+    margin-top: 0;
+    width: 100%;
+    max-width: 100%;
+    min-width: 220px;
+    min-height: 0;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.2s;
+}
+
+.chat-header {
+    background: linear-gradient(90deg, #3498db 0%, #217dbb 100%);
+    color: #fff;
+    font-weight: 800;
+    font-size: 1.2em;
+    padding: 14px 22px;
+    border-radius: 18px 18px 0 0;
+    letter-spacing: 2px;
+    text-align: center;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    background: #22334a;
+    border-bottom: 1.5px solid #1976d2;
+}
+
+.chat-message {
+    margin-bottom: 12px;
+    color: #e3f2fd;
+    animation: fadeIn 0.3s;
+    font-size: 1.08em;
+}
+
+.chat-message.mine {
+    text-align: right;
+    color: #90caf9;
+}
+
+.author {
+    font-weight: 700;
+    margin-right: 8px;
+}
+
+.text {
+    margin-right: 8px;
+}
+
+.time {
+    font-size: 0.95em;
+    color: #b3e5fc;
+    opacity: 0.7;
+}
+
+.chat-input-row {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-top: 1.5px solid #3498db33;
+    background: #1a2636;
+    border-radius: 0 0 18px 18px;
+    gap: 10px;
+}
+
+.chat-input {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1.5px solid #3498db;
+    font-size: 1.08em;
+    background: #22334a;
+    color: #fff;
+}
+
+.send-btn {
+    background: #3498db;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.3em;
+    padding: 0 18px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.send-btn:disabled {
+    background: #b0bec5;
+    cursor: not-allowed;
+}
+
+
+
+.buttons-row {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 14px;
+    margin: 0 24px 0 0;
+    padding-left: 0;
+}
+
+.ready-btn-row {
+    display: flex;
+    justify-content: center;
+    margin: 24px 0 0 0;
+}
+
+/* Стили для новой разметки */
+.room-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr 1fr;
+    gap: 32px;
+    align-items: start;
+    width: 100%;
+    min-height: 70vh;
+    font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+}
+
+.room-grid-wide {
+    grid-template-columns: 0.8fr 2.4fr 0.8fr;
+}
+
+.rules-panel,
+.center-panel,
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    background: rgba(34, 51, 74, 0.92);
+    border-radius: 18px;
+    padding: 28px 18px;
+    min-width: 0;
+    min-height: 0;
+    box-sizing: border-box;
+    height: 100%;
+}
+
+.rules-title {
+    font-size: 1.5em;
+    font-weight: 800;
+    color: #90caf9;
+    margin-bottom: 18px;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+.rules-content {
+    color: #e3f2fd;
+    font-size: 1.38em;
+    line-height: 1.5;
+    text-align: center center;
+    vertical-align: middle;
+}
+
+.center-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Центрирует по горизонтали */
+    justify-content: center;
+    /* Центрирует по вертикали */
+    gap: 24px;
+    height: 100%;
+    width: 100%;
+    text-align: center;
+}
+
+.main,
+.main-buttons,
+.ready-btn-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.ready-btn-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    height: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.chat-container {
+    flex: 1 1 0;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 0;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.2s;
+    box-sizing: border-box;
+    margin: 0;
+}
+
+.game-id-header {
+    width: 100%;
+    text-align: center;
+    font-size: 1.35em;
+    font-weight: 800;
+    color: #90caf9;
+    letter-spacing: 2px;
+    margin-bottom: 18px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    background: rgba(34, 51, 74, 0.85);
+    border-radius: 14px;
+    box-shadow: 0 2px 12px #1976d222;
+}
+
+
+.upper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    position: relative;
+    width: 100%;
+}
+
+.disconnect-btn {
+    margin-right: 18px;
+}
+
+.room-header {
+    flex: 1;
+    text-align: center;
+}
+
+.lang-btn-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 60px;
+    margin-left: 18px;
+}
+
+@media (max-width: 1200px) {
+    .chat-container {
+        min-width: 140px;
+        max-width: 100vw;
+    }
+
+    .right-panel {
+        min-width: 0;
+    }
 }
 </style>
