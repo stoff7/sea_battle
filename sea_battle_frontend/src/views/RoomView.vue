@@ -266,38 +266,12 @@ export default {
             this.saveRoomState();
         },
         saveRoomState() {
-            const state = {
-                ships: this.ships,
-                availableShips: this.availableShips,
-                isReady: this.isReady,
-                opponentId: this.opponentId,
-                opponentUsername: this.opponentUsername,
-                opponentReady: this.opponentReady,
-                playerId: this.playerId,
-                username: this.username,
-                role: this.role,
-                gameId: this.gameId,
-                chatMessages: this.chatStorage.messages
-            };
-            localStorage.setItem('roomState', JSON.stringify(state));
+            //
         },
 
         // Загружает все данные комнаты из localStorage
         loadRoomState() {
-            const state = JSON.parse(localStorage.getItem('roomState'));
-            if (state) {
-                this.ships = state.ships || [];
-                this.availableShips = state.availableShips || [];
-                this.isReady = state.isReady || false;
-                this.opponentId = state.opponentId || null;
-                this.opponentUsername = state.opponentUsername || null;
-                this.opponentReady = state.opponentReady || false;
-                this.playerId = state.playerId || null;
-                this.username = state.username || '';
-                this.role = state.role || '';
-                this.chatStorage.messages = state.chatMessages || [];
-                // gameId менять не нужно, он приходит из props
-            }
+            //
         },
         clearField() {
             if (this.isReady) {
@@ -371,15 +345,6 @@ export default {
 
                 case 'gameStarted':
                     this.inBattleStore.reset();
-                    localStorage.removeItem('nextPlayerId');
-                    localStorage.removeItem('enemyHits');
-                    localStorage.removeItem('enemyMisses');
-                    localStorage.removeItem('myHits');
-                    localStorage.removeItem('myMisses');
-                    localStorage.removeItem('myShipsWithStatus');
-                    localStorage.removeItem('enemyShips');
-                    localStorage.removeItem('playerId');
-                    localStorage.setItem('role', this.role);
                     this.$router.push({ name: 'inbattle', params: { gameId: this.gameId } });
                     break
 

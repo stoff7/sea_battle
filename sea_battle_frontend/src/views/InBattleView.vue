@@ -450,35 +450,10 @@ export default {
             return available[randomIdx];
         },
         saveBattleProgress() {
-            localStorage.setItem('playerId', JSON.stringify(this.playerId));
-            localStorage.setItem('nextPlayerId', JSON.stringify(this.nextPlayerId));
-            localStorage.setItem('enemyHits', JSON.stringify(this.enemyHits));
-            localStorage.setItem('enemyMisses', JSON.stringify(this.enemyMisses));
-            localStorage.setItem('myShipsWithStatus', JSON.stringify(this.myShipsWithStatus));
-            localStorage.setItem('enemyShips', JSON.stringify(this.enemyShips));
-            localStorage.setItem('myHits', JSON.stringify(this.inBattleStore.hits));
-            localStorage.setItem('myMisses', JSON.stringify(this.inBattleStore.misses));
+            //
         },
         loadBattleProgress() {
-            const pId = localStorage.getItem('playerId');
-            const npid = localStorage.getItem('nextPlayerId');
-            const eh = localStorage.getItem('enemyHits');
-            const em = localStorage.getItem('enemyMisses');
-            const mh = localStorage.getItem('myHits');
-            const mm = localStorage.getItem('myMisses');
-            const msws = localStorage.getItem('myShipsWithStatus');
-            const es = localStorage.getItem('enemyShips');
-            if (pId) this.playerId = (JSON.parse(pId));
-            if (npid) this.nextPlayerId = JSON.parse(npid);
-            if (msws) this.myShipsWithStatus = JSON.parse(msws);
-            if (es) this.enemyShips = JSON.parse(es);
-            if (eh) this.enemyHits = JSON.parse(eh);
-            if (em) this.enemyMisses = JSON.parse(em);
-            if (mh) this.inBattleStore.hits = JSON.parse(mh);
-            if (mm) this.inBattleStore.misses = JSON.parse(mm);
-            this.clearTimer();
-            this.timer = 10;
-            this.startTimer();
+            //
         },
     }
 };
