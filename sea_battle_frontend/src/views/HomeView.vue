@@ -98,13 +98,12 @@ export default {
     }
     console.log("Имя пользователя из localStorage:", this.username);
   },
-  mounted() {
-    console.log('Локаль:', this.$i18n.locale);
-    console.log('messages:', this.$i18n.messages);
-    console.log('home.title:', this.$t('home.title'));
-  },
   methods: {
     async createRoom(type) {
+      if (!this.username) {
+        alert("Пожалуйста, введите ваше имя пользователя!");
+        return;
+      }
       console.log("Создание комнаты...", this.api);
       const response = await axios.post(this.api + '/start_game', {
         userName: this.username,
@@ -133,6 +132,10 @@ export default {
         alert("Пожалуйста, введите ID комнаты!");
         return;
       }
+      if (!this.username) {
+        alert("Пожалуйста, введите ваше имя пользователя!");
+        return;
+      }
       this.gameId = this.joinGameId;
       const response = await axios.post(this.api + `/join_game`, {
         gameId: this.joinGameId,
@@ -151,6 +154,10 @@ export default {
       this.$router.push({ name: 'room', params: { gameId: this.gameId } });
     },
     async joinRandomRoom() {
+      if (!this.username) {
+        alert("Пожалуйста, введите ваше имя пользователя!");
+        return;
+      }
       try {
         const response = await axios.post(this.api + '/join_random_game', {
           userName: this.username

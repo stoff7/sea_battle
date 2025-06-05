@@ -101,7 +101,6 @@ export default {
         gameId: { type: String, required: true }
     },
     mounted() {
-        document.title = t('home.title')
         wsService.connect(this.api, this.gameId)
 
         // 2) подписываемся на событие игры
