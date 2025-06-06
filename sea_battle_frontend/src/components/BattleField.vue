@@ -69,8 +69,7 @@
 import Burning from './Burning.vue';
 import { getFieldFacade } from '@/logic/fieldFacade';
 
-const shipImages = import.meta.glob('@/assets/ships/*.png', { eager: true, import: 'default' });
-
+const shipImages = import.meta.glob('./assets/ships/*.png', { eager: true, import: 'default' });
 export default {
   name: 'BattleField',
   // components: { Burning },

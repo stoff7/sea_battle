@@ -1,5 +1,4 @@
 <template>
-  <audio id="bg-music" src="@/assets/theme.mp3" autoplay loop></audio>
   <div class="home-page">
     <div class="header-container">
       <h1 class="military-title">{{ $t('home.title') }}</h1>

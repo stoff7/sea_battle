@@ -1,11 +1,25 @@
+// vitest.config.js
 import { defineConfig, configDefaults } from 'vitest/config'
-import viteConfig from './vite.config.js'
+import vue from '@vitejs/plugin-vue'
+import path from 'path'
 
+// Мы не спредим сюда всю функцию from vite.config.js, а дублируем только нужные поля
 export default defineConfig({
-  ...viteConfig,
+  // Явно прописываем тот же alias, что и в vite.config.js
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  plugins: [
+    vue(),
+  ],
   test: {
     environment: 'jsdom',
-    exclude: [...configDefaults.exclude, 'e2e/**'],
     globals: true,
+    exclude: [
+      ...configDefaults.exclude,
+      'e2e/**',
+    ],
   },
 })

@@ -10,6 +10,7 @@ class ApiFacade {
       userName: username,
       gameType: type,
     });
+
     return response.data;
   }
 
