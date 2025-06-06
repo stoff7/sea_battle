@@ -69,11 +69,11 @@ class GameServiceJoinGameTest {
         // 3) Вызов метода
         GameService.JoinGameResult result = gameService.joinGame(10L, "NewPlayer");
 
-        // 4) Проверяем, что у existingGame теперь установлен secondOwner и статус WAITINGREADY
+        
         assertThat(existingGame.getSecondOwner()).isEqualTo(newUser);
         assertThat(existingGame.getStatus()).isEqualTo(GameStatus.WAITINGREADY);
 
-        // 5) Проверяем, что repository.save(...) вызвался с обновлённой игрой
+   
         verify(gameRepository, times(1)).save(existingGame);
 
         // 6) Проверяем, что eventPublisher.publish(...) был вызван ровно один раз
@@ -82,7 +82,7 @@ class GameServiceJoinGameTest {
         verify(eventPublisher, times(1)).publish(eventCaptor.capture());
         GameEvent publishedEvent = eventCaptor.getValue();
 
-        // 6.1. Проверяем поля события
+   
         assertThat(publishedEvent.getGameId()).isEqualTo(10L);
         assertThat(publishedEvent.getEventType()).isEqualTo("playerJoined");
         assertThat(publishedEvent.getPayload().get("playerId")).isEqualTo(newUser.getUser_id());
@@ -97,23 +97,23 @@ class GameServiceJoinGameTest {
 
     @Test
     void joinGame_whenGameNotWaiting_throwsIllegalState() {
-        // Переконфигурируем status → ACTIVE (не WAITINGPLAYER)
+        
         existingGame.setStatus(GameStatus.ACTIVE);
 
-        // Настроим gameRepository.findById(99L) → Optional.of(existingGame)
+
         when(gameRepository.findById(99L)).thenReturn(Optional.of(existingGame));
 
         assertThatThrownBy(() -> gameService.joinGame(99L, "Someone"))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("Нельзя присоединиться, статус игры:");
 
-        // eventPublisher.publish не должен вызываться
+
         verify(eventPublisher, never()).publish(any());
     }
 
     @Test
     void joinGame_whenGameNotFound_throwsEntityNotFound() {
-        // Настроим: нет игры с id=123
+     
         when(gameRepository.findById(123L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> gameService.joinGame(123L, "Nobody"))

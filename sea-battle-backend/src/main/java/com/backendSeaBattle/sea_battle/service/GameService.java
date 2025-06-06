@@ -389,7 +389,7 @@ public class GameService {
         }
 
         // 3A) Если secondExists == true
-        if (secondExists && secondIsRequester) {
+        if (secondExists && (game.getStatus() != GameStatus.WAITINGPLAYER)) {
             game.setFirstOwner(user);
             game.setSecondOwner(null);
             game.setStatus(GameStatus.WAITINGPLAYER);
