@@ -364,11 +364,7 @@ export default {
             return Array.from(adj);
         },
         async attack(idx) {
-            // 1. Проверка хода и блокировки клетки
-            if (this.playerId !== this.nextPlayerId) {
-                console.warn('Not your turn!');
-                return;
-            }
+
             if (this.attackBlocked[idx]) return;
 
             // 2. Вычисляем координаты
