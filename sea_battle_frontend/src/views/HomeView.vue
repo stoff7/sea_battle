@@ -94,6 +94,14 @@ export default {
       this.username = storedUsername;
       this.usersStore.setUsername(storedUsername);
     }
+    localStorage.removeItem('gameId');
+    localStorage.removeItem('playerId');
+    localStorage.removeItem('roomState');
+    localStorage.removeItem('opponentId');
+    localStorage.removeItem('opponentName');
+    localStorage.removeItem('role');
+    localStorage.removeItem('hostId');
+    localStorage.removeItem('hostName');
   },
   methods: {
     async createRoom(type) {
