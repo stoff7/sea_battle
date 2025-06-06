@@ -281,6 +281,8 @@ export default {
                 case 'gameStarted':
                     this.startGame = true;
                     this.inBattleStore.reset();
+                    this.userStorage.setOpponentId(this.opponentId);
+                    this.userStorage.setOpponentName(this.opponentUsername);
                     localStorage.setItem('role', this.role);
                     localStorage.setItem('myShips', JSON.stringify(this.ships));
                     this.$router.push({ name: 'inbattle', params: { gameId: this.gameId } });

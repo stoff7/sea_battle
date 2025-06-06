@@ -76,20 +76,19 @@ export default {
         const inBattleStore = useInBattleStore();
         const chatStorage = useChatStore();
         const api = import.meta.env.VITE_API;
-        const playerId = userStorage.playerId;
-        const gameService = getGameService(api, this.gameId, playerId);
+        const gameService = getGameService(api, this.gameId, this.playerId);
 
         return {
             gridSize: 10,
             api,
             gameId: this.$route.params.gameId,
-            playerId,
-            username: userStorage.username,
-            opponentId: userStorage.opponentId,
-            opponentName: userStorage.opponentName,
+            playerId: this.userStorage.playerId,
+            username: this.userStorage.username,
+            opponentId: this.userStorage.opponentId,
+            opponentName: this.userStorage.opponentName,
             enemyHits: [],
             enemyMisses: [],
-            nextPlayerId: localStorage.getItem('role') === 'host' ? userStorage.playerId : userStorage.opponentId,
+            nextPlayerId: userStorage.role === 'host' ? this.playerId : this.opponentId,
             gameStatus: null,
             attackCellColors: Array(100).fill('#fff'),
             attackBlocked: Array(100).fill(false),
