@@ -60,34 +60,33 @@
 </template>
 
 <script>
-import axios from 'axios';
 import { useUsersStore } from '@/stores/users';
 import leftImg from '@/assets/images/left.jpeg';
 import rightImg from '@/assets/images/right.jpeg';
 import LanguageButton from '@/components/LanguageButton.vue';
+import { getApiFacade } from '@/logic/apiFacade';
+import { createUser } from '@/logic/userFactory';
 
 export default {
   name: "HomeView",
-  components: {
-    LanguageButton
-  },
+  components: { LanguageButton },
   data() {
     const usersStore = useUsersStore();
-    console.log(usersStore);
+    const apiBase = 'https://' + import.meta.env.VITE_API + '/api/v1';
     return {
-      api: 'https://' + import.meta.env.VITE_API + '/api/v1',
+      apiFacade: getApiFacade(apiBase),
+      usersStore,
+      leftImg,
+      rightImg,
       playerId: localStorage.getItem('playerId'),
       gameId: null,
       username: '',
       joinGameId: null,
       hostName: null,
-      leftImg,
-      rightImg,
       hostId: null,
-      usersStore: usersStore,
       showJoin: false,
       showCreate: false,
-      hovered: null, // Новое состояние для отслеживания наведения
+      hovered: null,
     };
   },
   created() {
@@ -96,7 +95,6 @@ export default {
       this.username = storedUsername;
       this.usersStore.setUsername(storedUsername);
     }
-    console.log("Имя пользователя из localStorage:", this.username);
   },
   methods: {
     async createRoom(type) {
@@ -104,52 +102,48 @@ export default {
         alert("Пожалуйста, введите ваше имя пользователя!");
         return;
       }
-      console.log("Создание комнаты...", this.api);
-      const response = await axios.post(this.api + '/start_game', {
-        userName: this.username,
-        gameType: type,
+      const data = await this.apiFacade.createRoom(this.username, type);
+      const user = createUser({
+        playerId: data.playerId,
+        username: this.username,
+        hostId: data.hostId,
+        hostName: data.hostName,
+        role: 'host'
       });
-      this.playerId = response.data.playerId;
-      this.gameId = response.data.gameId;
-      localStorage.setItem('playerId', this.playerId);
-      console.log("ID игрока:", this.playerId);
-      console.log("ID игры:", this.gameId);
-      this.usersStore.setPlayerId(this.playerId);
-      this.usersStore.setUsername(this.username);
-      this.usersStore.setOpponentId(this.hostId);
-      this.usersStore.setOpponentName(this.hostName);
-      this.usersStore.setRole('host');
+      this.playerId = user.playerId;
+      this.gameId = data.gameId;
+      this.usersStore.setUsername(user.username);
+      this.usersStore.setPlayerId(user.playerId);
+      this.usersStore.setOpponentId(user.hostId);
+      this.usersStore.setOpponentName(user.hostName);
+      this.usersStore.setRole(user.role);
       localStorage.removeItem('roomState');
       this.$router.push({ name: 'room', params: { gameId: this.gameId } });
-
     },
     saveUsername() {
       localStorage.setItem('username', this.username);
-      console.log("Имя пользователя сохранено:", this.username);
+      this.usersStore.setUsername(this.username);
     },
     async joinRoom() {
-      if (!this.joinGameId) {
-        alert("Пожалуйста, введите ID комнаты!");
+      if (!this.joinGameId || !this.username) {
+        alert("Пожалуйста, введите ID комнаты и имя пользователя!");
         return;
       }
-      if (!this.username) {
-        alert("Пожалуйста, введите ваше имя пользователя!");
-        return;
-      }
-      this.gameId = this.joinGameId;
-      const response = await axios.post(this.api + `/join_game`, {
-        gameId: this.joinGameId,
-        userName: this.username
+      const data = await this.apiFacade.joinRoom(this.username, this.joinGameId);
+      const user = createUser({
+        playerId: data.playerId,
+        username: this.username,
+        hostId: data.hostId,
+        hostName: data.hostName,
+        role: 'guest'
       });
-      this.playerId = response.data.playerId;
-      this.usersStore.setUsername(this.username);
-      this.gameId = response.data.gameId;
-      this.usersStore.setPlayerId(this.playerId);
-      this.usersStore.setOpponentId(response.data.hostId);
-      this.usersStore.setOpponentName(response.data.hostName);
-      this.usersStore.setRole('guest');
-
-      console.log("Присоединение к комнате c ID:", this.gameId);
+      this.playerId = user.playerId;
+      this.gameId = data.gameId;
+      this.usersStore.setUsername(user.username);
+      this.usersStore.setPlayerId(user.playerId);
+      this.usersStore.setOpponentId(user.hostId);
+      this.usersStore.setOpponentName(user.hostName);
+      this.usersStore.setRole(user.role);
       localStorage.removeItem('roomState');
       this.$router.push({ name: 'room', params: { gameId: this.gameId } });
     },
@@ -158,30 +152,24 @@ export default {
         alert("Пожалуйста, введите ваше имя пользователя!");
         return;
       }
-      try {
-        const response = await axios.post(this.api + '/join_random_game', {
-          userName: this.username
-        });
-        console.log("Присоединение к случайной комнате...", response.data);
-        if (response.data.hostName === null) {
-          this.usersStore.setRole('host');
-
-        }
-        else {
-          this.usersStore.setRole('guest');
-          this.usersStore.setOpponentId(response.data.hostId);
-          this.usersStore.setOpponentName(response.data.hostName);
-        }
-        this.gameId = response.data.gameId;
-        this.usersStore.setUsername(this.username);
-        this.usersStore.setPlayerId(response.data.playerId);
-        console.log("ID игрока:", response.data.playerId);
-        localStorage.removeItem('roomState');
-        this.$router.push({ name: 'room', params: { gameId: this.gameId } });
-        console.log("ID игры:", response.data.gameId);
-      } catch (e) {
-        alert('Нет доступных комнат для присоединения!');
-      }
+      const data = await this.apiFacade.joinRandomRoom(this.username);
+      const role = data.hostName === null ? 'host' : 'guest';
+      const user = createUser({
+        playerId: data.playerId,
+        username: this.username,
+        hostId: data.hostId,
+        hostName: data.hostName,
+        role
+      });
+      this.playerId = user.playerId;
+      this.gameId = data.gameId;
+      this.usersStore.setUsername(user.username);
+      this.usersStore.setPlayerId(user.playerId);
+      this.usersStore.setOpponentId(user.hostId);
+      this.usersStore.setOpponentName(user.hostName);
+      this.usersStore.setRole(user.role);
+      localStorage.removeItem('roomState');
+      this.$router.push({ name: 'room', params: { gameId: this.gameId } });
     },
   },
 };

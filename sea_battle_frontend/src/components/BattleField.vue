@@ -67,6 +67,7 @@
 
 <script>
 import Burning from './Burning.vue';
+import { getFieldFacade } from '@/logic/fieldFacade';
 
 const shipImages = import.meta.glob('@/assets/ships/*.png', { eager: true, import: 'default' });
 
@@ -87,10 +88,11 @@ export default {
   data() {
     return {
       gridSize: 10,
+      fieldFacade: getFieldFacade(10),
       dragged: null,
       grabbedIndex: 0,
       adjacentCells: new Set(),
-
+      myShips: JSON.parse(localStorage.getItem('myShips')) || [],
     };
   },
   watch: {
@@ -132,120 +134,22 @@ export default {
     },
 
     rotateShip(ship, event) {
-      if (this.ready) {
-        return;
-      }
+      if (this.ready) return;
       this.onPointerDown(event, ship);
       const grabbedIndex = this.grabbedIndex ?? 0;
-
-      const length = ship.coords.length;
-      const [cx, cy] = ship.coords[grabbedIndex];
-
-      // Генерируем все три варианта поворота
-      const variants = [
-        // +90°
-        () => {
-          let newDirection = ship.direction === 'horizontal' ? 'vertical' : 'horizontal';
-          let newCoords = [];
-          if (newDirection === 'horizontal') {
-            for (let i = 0; i < length; i++) newCoords.push([cx - grabbedIndex + i, cy]);
-            newCoords.sort((a, b) => a[0] - b[0]);
-          } else {
-            for (let i = 0; i < length; i++) newCoords.push([cx, cy - grabbedIndex + i]);
-            newCoords.sort((a, b) => a[1] - b[1]);
-          }
-          return {
-            direction: newDirection,
-            coords: newCoords,
-            w: newDirection === 'horizontal' ? length : 1,
-            h: newDirection === 'vertical' ? length : 1,
-          };
-        },
-        // -90°
-        () => {
-          let newDirection = ship.direction === 'horizontal' ? 'vertical' : 'horizontal';
-          let newCoords = [];
-          if (newDirection === 'horizontal') {
-            for (let i = 0; i < length; i++) newCoords.push([cx - grabbedIndex + (length - 1 - i), cy]);
-            newCoords.sort((a, b) => a[0] - b[0]);
-          } else {
-            for (let i = 0; i < length; i++) newCoords.push([cx, cy - grabbedIndex + (length - 1 - i)]);
-            newCoords.sort((a, b) => a[1] - b[1]);
-          }
-          return {
-            direction: newDirection,
-            coords: newCoords,
-            w: newDirection === 'horizontal' ? length : 1,
-            h: newDirection === 'vertical' ? length : 1,
-          };
-        },
-        // 180°
-        () => {
-          let newDirection = ship.direction;
-          let newCoords = [];
-          if (newDirection === 'horizontal') {
-            for (let i = 0; i < length; i++) newCoords.push([cx - (i - grabbedIndex), cy]);
-            newCoords.sort((a, b) => a[0] - b[0]);
-          } else {
-            for (let i = 0; i < length; i++) newCoords.push([cx, cy - (i - grabbedIndex)]);
-            newCoords.sort((a, b) => a[1] - b[1]);
-          }
-          return {
-            direction: newDirection,
-            coords: newCoords,
-            w: newDirection === 'horizontal' ? length : 1,
-            h: newDirection === 'vertical' ? length : 1,
-          };
-        }
-      ];
-
-      // Перемешиваем варианты случайным образом
-      for (let i = variants.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [variants[i], variants[j]] = [variants[j], variants[i]];
+      const rotated = this.fieldFacade.rotateShip(ship, grabbedIndex);
+      if (
+        this.fieldFacade.canPlaceAt(this.ships, rotated.coords.map(([x, y]) => y * this.gridSize + x), ship.id) &&
+        !this.coordsEqual(ship.coords, rotated.coords)
+      ) {
+        this.$emit('rotate-ship', rotated);
+        this.updateAdjacentHighlight();
+      } else {
+        console.warn('Поворот невозможен для корабля', ship);
       }
-
-      // Пробуем варианты по очереди
-      for (const variantFn of variants) {
-        const v = variantFn();
-        if (
-          this.boundCheck(v.coords, ship.id) &&
-          !this.coordsEqual(ship.coords, v.coords)
-        ) {
-          this.$emit('rotate-ship', {
-            ...ship,
-            direction: v.direction,
-            w: v.w,
-            h: v.h,
-            coords: v.coords
-          });
-          this.updateAdjacentHighlight();
-          return;
-        }
-      }
-
-      // Если ни один вариант не подошёл
-      console.warn('Поворот невозможен для корабля', ship);
     },
-
     canPlaceAt(cellIndices, ignoreShipId = null) {
-      const forbidden = new Set();
-
-      for (const ship of this.ships) {
-        if (ship.id === ignoreShipId) continue;
-
-        // занятые клетки
-        ship.coords.forEach(([x, y]) =>
-          forbidden.add(y * this.gridSize + x)
-        );
-
-        // соседние
-        this.getAdjacentCells(ship).forEach(i =>
-          forbidden.add(i)
-        );
-      }
-
-      return cellIndices.every(i => !forbidden.has(i));
+      return this.fieldFacade.canPlaceAt(this.ships, cellIndices, ignoreShipId);
     },
     // Сохраняем индекс захваченной ячейки
     onPointerDown(e, ship) {
@@ -370,28 +274,7 @@ export default {
       };
     },
     getAdjacentCells(ship) {
-      const deltas = [
-        [-1, -1], [-1, 0], [-1, 1],
-        [0, -1], [0, 1],
-        [1, -1], [1, 0], [1, 1],
-      ];
-      const neighbors = new Set();
-
-      for (const [x, y] of ship.coords) {
-        for (const [dx, dy] of deltas) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (
-            nx >= 0 && nx < this.gridSize &&
-            ny >= 0 && ny < this.gridSize &&
-            !ship.coords.some(([sx, sy]) => sx === nx && sy === ny)
-          ) {
-            neighbors.add(ny * this.gridSize + nx);
-          }
-        }
-      }
-
-      return neighbors;
+      return this.fieldFacade.getAdjacentCells(ship);
     },
     updateAdjacentHighlight() {
       this.adjacentCells.clear();

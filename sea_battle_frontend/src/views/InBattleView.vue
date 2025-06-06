@@ -61,14 +61,13 @@ import LanguageButton from '@/components/LanguageButton.vue';
 import { useRoute } from 'vue-router'
 import BattleField from '@/components/BattleField.vue'
 import Chat from '@/components/Chat.vue';
-import axios from 'axios'
 import { wsService } from '@/wsService.js';
 import { useUsersStore } from '@/stores/users';
 import { useInBattleStore } from '@/stores/inbattle';
 import { useChatStore } from '@/stores/chat';
+import { getGameService } from '@/logic/gameService';
 
-// Получаем корабли из параметров маршрута или моковые
-const route = useRoute()
+
 export default {
     name: 'InbattleView',
     components: { BattleField, Chat, ShipStatusBar, LanguageButton },
@@ -76,19 +75,24 @@ export default {
         const userStorage = useUsersStore();
         const inBattleStore = useInBattleStore();
         const chatStorage = useChatStore();
+        const api = import.meta.env.VITE_API;
+        const playerId = userStorage.playerId;
+        const gameService = getGameService(api, this.gameId, playerId);
+
         return {
             gridSize: 10,
-            api: import.meta.env.VITE_API,
+            api,
+            gameId: this.$route.params.gameId,
+            playerId,
             username: userStorage.username,
-            playerId: userStorage.playerId,
             opponentId: userStorage.opponentId,
             opponentName: userStorage.opponentName,
             enemyHits: [],
             enemyMisses: [],
             nextPlayerId: localStorage.getItem('role') === 'host' ? userStorage.playerId : userStorage.opponentId,
             gameStatus: null,
-            attackCellColors: Array(100).fill('#fff'), // Цвета клеток для атаки
-            attackBlocked: Array(100).fill(false), // Блокировка клеток для атаки
+            attackCellColors: Array(100).fill('#fff'),
+            attackBlocked: Array(100).fill(false),
             myShips: JSON.parse(localStorage.getItem('myShips')) || [],
             enemyShips: [
                 { size: 4, sunk: false },
@@ -96,14 +100,15 @@ export default {
                 { size: 2, sunk: false }, { size: 2, sunk: false }, { size: 2, sunk: false },
                 { size: 1, sunk: false }, { size: 1, sunk: false }, { size: 1, sunk: false }, { size: 1, sunk: false }
             ],
-            userStorage: userStorage,
-            inBattleStore: inBattleStore,
+            userStorage,
+            inBattleStore,
             timer: 10,
             timerInterval: null,
             chatStorage,
             showGameFinishedModal: false,
             stopTimer: false,
-            endGame: false, // Флаг для отслеживания окончания игры
+            endGame: false,
+            gameService,
         }
     },
     props: {
@@ -121,7 +126,7 @@ export default {
     unmounted() {
         // 3) отключаемся от веб-сокета
         wsService.disconnect()
-        if (this.endGame) {
+        if (!this.endGame) {
             console.log('Отключаемся от комнаты ВУИГПП', this.gameId);
             this.disconnect();
         }
@@ -158,11 +163,7 @@ export default {
     methods: {
         async disconnect() {
             try {
-                const response = await axios.post('https://' + this.api + '/api/v1/' + this.gameId + '/leave_game', {
-                    playerId: this.playerId,
-                });
-                console.log('Отключаемся от комнаты', this.gameId);
-                console.log('response', response);
+                await this.gameService.leaveGame();
                 wsService.disconnect();
                 this.$router.push({ name: 'home' });
             } catch (error) {
@@ -186,16 +187,11 @@ export default {
             if (this.timerInterval) {
                 clearInterval(this.timerInterval);
                 this.timerInterval = null;
-                // Для отладки:
-                console.log('Таймер остановлен');
             }
         },
         async sendChatMessage(text) {
             try {
-                await axios.post(`https://${this.api}/api/v1/${this.gameId}/chat_message`, {
-                    playerId: this.playerId,
-                    textMessage: text
-                });
+                await this.gameService.sendChatMessage(text);
             } catch (e) {
                 alert('Ошибка отправки сообщения');
             }
@@ -282,6 +278,7 @@ export default {
             this.$router.push({ name: 'home' });
         },
         async playAgain() {
+            // 1. Очищаем все боевые данные из localStorage
             localStorage.removeItem('enemyHits');
             localStorage.removeItem('enemyMisses');
             localStorage.removeItem('myHits');
@@ -289,21 +286,17 @@ export default {
             localStorage.removeItem('myShipsWithStatus');
             localStorage.removeItem('enemyShips');
             this.showGameFinishedModal = false;
+
             try {
-                console.log('Starting replay for game:', this.playerId, this.gameId);
-                const response = await axios.patch(`https://${this.api}/api/v1/${this.gameId}/replay_game`, {
-                    playerId: this.playerId
-                });
-                console.log('Replay response:', response.data);
-                // Обработка ответа сервера
-                const { gameId, playerId, gameStatus, hostName, hostId, message } = response.data;
+                const response = await this.gameService.replayGame();
+                const { gameId, playerId, gameStatus, hostName, hostId, message } = response;
                 if (message) {
                     alert(message);
                     this.goHome();
                     return;
                 }
-                // Переход в новую игру
 
+                // 4. Обновляем состояние пользователя и роли
                 if (hostId === this.playerId) {
                     this.userStorage.setRole('host');
                     localStorage.setItem('role', 'host');
@@ -319,18 +312,25 @@ export default {
                     this.userStorage.setPlayerId(playerId);
                     this.userStorage.setUsername(this.username);
                 }
+
+                // 5. Сброс состояния боя и переход в новую комнату
                 this.inBattleStore.reset();
                 localStorage.removeItem('roomState');
                 wsService.disconnect();
-                this.$router.push({ name: 'room', params: { gameId: gameId } });
+                this.$router.push({ name: 'room', params: { gameId } });
                 return;
             } catch (e) {
-                console.error('Error finishing game:', e);
-                alert('Ошибка при создании новой игры');
-                this.$router.push({ name: 'home' });
+                // AxiosError с 409
+                console.error('Error starting new game:', e);
+                if (e.response && e.response.status === 409) {
+                    alert(e.response.data?.message || 'Нельзя начать новую игру: конфликт состояния!');
+                    this.goHome();
+                } else {
+                    console.error('Error finishing game:', e);
+                    alert('Ошибка при создании новой игры');
+                    this.$router.push({ name: 'home' });
+                }
             }
-            // Если не удалось создать новую игру — возвращаем на главную
-
         },
         textToSize(text) {
             switch (text) {
@@ -365,56 +365,55 @@ export default {
             return Array.from(adj);
         },
         async attack(idx) {
-            console.log(this.nextPlayerId)
-            console.log(localStorage.getItem('enemyHits'))
-            console.log(this.playerId)
-            // 1. Не даём атаковать заблокированные клетки
+            // 1. Проверка хода и блокировки клетки
             if (this.playerId !== this.nextPlayerId) {
                 console.warn('Not your turn!');
                 return;
             }
-            console.log(`Attacking cell index: ${idx}`);
             if (this.attackBlocked[idx]) return;
 
-            // 2. Вычисляем координаты x, y
+            // 2. Вычисляем координаты
             const x = idx % this.gridSize;
             const y = Math.floor(idx / this.gridSize);
-            console.log(`Attack at (${x},${y})`);
+
             try {
-                // 3. Делаем PATCH-запрос на /api/v1/{gameId}/fight
-                const url = 'https://' + this.api + '/api/v1/' + this.gameId + '/fight';
-                const payload = {
-                    playerId: this.playerId,
-                    coord: { x, y }
-                };
-                console.log(payload);
-                const response = await axios.patch(url, payload);
+                // 3. Используем Facade для запроса
+                const response = await this.gameService.fight({ x, y });
+                if (!response || !response.data) {
+                    throw new Error('Пустой ответ от сервера');
+                }
+                const {
+                    coord: newCoord,
+                    nextPlayerId,
+                    gameStatus,
+                    message,
+                    state,
+                    shipState,
+                    resultShipType,
+                    resultShipCoords
+                } = response.data;
 
-
-                // 4. Получаем данные из ответа
-                const { coord: newCoord, nextPlayerId, gameStatus, message, state } = response.data;
-                console.log('Response:', response.data);
-
-                // 5. Обновляем цвет клетки в зависимости от результата
-                //    Например, HIT — красим в красный, MISS — в серый
+                // 5. Обновляем состояние поля
                 if (state === 'HIT') {
                     if (!this.enemyHits.includes(idx)) {
                         this.enemyHits = [...this.enemyHits, idx];
                         this.saveBattleProgress();
                     }
-                    if (response.data.shipState == "KILL") {
-
-                        const killedShip = this.enemyShips.find(s => !s.sunk && s.size === this.textToSize(response.data.resultShipType));
+                    if (shipState === "KILL") {
+                        // Помечаем корабль как потопленный
+                        const killedShip = this.enemyShips.find(s => !s.sunk && s.size === this.textToSize(resultShipType));
                         if (killedShip) {
                             killedShip.sunk = true;
                         }
-                        const adjCells = this.getAdjacentCells(response.data.resultShipCoords, this.gridSize);
-                        adjCells.forEach(idx => {
-                            if (!this.enemyMisses.includes(idx)) {
-                                this.enemyMisses.push(idx);
+                        // Добавляем клетки вокруг убитого корабля в промахи
+                        const adjCells = this.getAdjacentCells(resultShipCoords, this.gridSize);
+                        adjCells.forEach(adjIdx => {
+                            if (!this.enemyMisses.includes(adjIdx)) {
+                                this.enemyMisses.push(adjIdx);
                             }
                         });
                     }
+                    // 6. Сброс таймера, если ход продолжается
                     this.clearTimer();
                     this.timer = 10;
                     this.startTimer();
@@ -425,29 +424,24 @@ export default {
                     }
                 }
 
-
-                // 6. Показываем сообщение пользователю (кратко)
-                console.log(`Attack at (${x},${y}) → ${state}`);
+                // 7. Сообщение пользователю
                 if (message) {
                     alert(message);
                 }
 
-                // 7. Опционально: сохраняем новый ход и статус игры
+                // 8. Сохраняем новый ход и статус игры
                 this.nextPlayerId = nextPlayerId;
                 this.gameStatus = gameStatus;
 
             } catch (error) {
-                // 8. Обработка ошибок сети и сервера
+                // 9. Обработка ошибок
                 if (error.response) {
-                    // Сервер вернул ошибку (4xx, 5xx)
                     console.error('Ошибка от сервера:', error.response.data);
                     alert(`Ошибка: ${error.response.data.message || 'Server error'}`);
                 } else if (error.request) {
-                    // Запрос ушёл, но ответа нет
                     console.error('Нет ответа от сервера:', error.request);
                     alert('Нет ответа от сервера');
                 } else {
-                    // Что-то пошло не так на клиенте
                     console.error('Ошибка при запросе:', error.message);
                     alert(`Ошибка: ${error.message}`);
                 }

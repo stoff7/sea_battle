@@ -93,6 +93,7 @@ import { wsService } from '@/wsService.js';
 import { useUsersStore } from '@/stores/users';
 import { useChatStore } from '@/stores/chat';
 import { useInBattleStore } from '@/stores/inbattle';
+import { getRoomService } from '@/logic/roomService';
 
 export default {
     name: 'RoomView',
@@ -135,6 +136,9 @@ export default {
         const userStorage = useUsersStore();
         const chatStorage = useChatStore();
         const inBattleStore = useInBattleStore();
+        const api = import.meta.env.VITE_API;
+        const roomService = getRoomService(api, this.gameId, userStorage.playerId);
+
         return {
             api: import.meta.env.VITE_API,
             username: userStorage.username,
@@ -146,6 +150,7 @@ export default {
             playerId: userStorage.playerId,
             isReady: false,
             startGame: false,
+            roomService,
 
             role: userStorage.role,
             ships: [],  // размещённые на поле
@@ -179,11 +184,7 @@ export default {
         },
         async disconnect() {
             try {
-                const response = await axios.post('https://' + this.api + '/api/v1/' + this.gameId + '/leave_game', {
-                    playerId: this.playerId,
-                });
-                console.log('Отключаемся от комнаты', this.gameId);
-                console.log('response', response);
+                await this.roomService.leaveRoom();
                 wsService.disconnect();
                 this.$router.push({ name: 'home' });
             } catch (error) {
@@ -202,70 +203,9 @@ export default {
                 alert('Сначала снимите готовность!');
                 return;
             }
-            const directions = [
-                [1, 0], [-1, 0], [0, 1], [0, -1],
-                [1, 1], [-1, -1], [1, -1], [-1, 1]
-            ];
             this.clearField();
-
-            const takenCoords = new Set();
-
-            for (let o = 0; o < 150 && this.availableShips.length > 0; o++) {
-                let done = true;
-                const randomX = Math.floor(Math.random() * (this.gridSize));
-                const randomY = Math.floor(Math.random() * (this.gridSize));
-                const randomShip = this.availableShips[Math.floor(Math.random() * this.availableShips.length)];
-                let w = randomShip.w;
-                let h = randomShip.h;
-                // случайное направление
-                const direction = Math.random() > 0.5 ? 'horizontal' : 'vertical';
-                let newCoords = new Set();
-
-                if (direction === 'horizontal') {
-                    console.log(randomShip);
-                    randomShip.direction = 'horizontal';
-                    for (let j = 0; j < randomShip.w; j++) {
-                        const key = [randomX + j, randomY].toString();
-                        if (takenCoords.has(key) || randomX + j >= this.gridSize || randomY >= this.gridSize) {
-                            done = false;
-                            break;
-                        }
-                        newCoords.add([randomX + j, randomY]);
-                    }
-                } else {
-                    console.log(randomShip);
-                    randomShip.direction = 'vertical';
-                    [w, h] = [h, w];
-                    for (let j = 0; j < randomShip.w; j++) {
-                        const key = [randomX, randomY + j].toString();
-                        if (takenCoords.has(key) || randomX >= this.gridSize || randomY + j >= this.gridSize) {
-                            done = false;
-                            break;
-                        }
-                        newCoords.add([randomX, randomY + j]);
-                    }
-
-                }
-
-                if (done) {
-                    randomShip.direction = direction;
-                    randomShip.w = w;
-                    randomShip.h = h;
-                    newCoords.forEach(([x, y]) => {
-                        takenCoords.add([x, y].toString());
-                        directions.forEach(([dx, dy]) => {
-                            takenCoords.add([x + dx, y + dy].toString());
-                        });
-                    });
-                    console.log('Корабль', randomShip, 'направление', direction, 'координаты', Array.from(newCoords));
-                    this.placeShipOnField({
-                        ship: { ...randomShip, direction },
-                        row: Array.from(newCoords)[0][1],
-                        col: Array.from(newCoords)[0][0],
-                        grabbedIndex: 0
-                    });
-                }
-            }
+            this.ships = this.roomService.randomizeShips(this.gridSize, this.availableShips);
+            this.availableShips = [];
             this.saveRoomState();
         },
         saveRoomState() {
@@ -297,24 +237,16 @@ export default {
             this.saveRoomState();
         },
         async toggleReady() {
-            console.log('playerId', this.playerId);
             if (this.availableShips.length > 0) {
                 alert('Сначала расставьте все корабли!');
                 return;
             }
             localStorage.setItem('myShips', JSON.stringify(this.ships));
             this.isReady = !this.isReady;
-            console.log(this.playerId, this.isReady, this.ships);
             try {
-                console.log(this.convertShipsForApi(this.ships))
-                const response = await axios.post('https://' + this.api + '/api/v1/' + this.gameId + '/ready_game', {
-                    playerId: this.playerId,
-                    ready: this.isReady,
-                    ships: this.convertShipsForApi(this.ships)
-                });
-            }
-            catch (error) {
-                console.error('Ожидаем готовность другого игрока', error);
+                const shipsForApi = this.roomService.convertShipsForApi(this.ships);
+                await this.roomService.setReady(this.isReady, shipsForApi);
+            } catch (error) {
                 alert('Ожидаем готовность другого игрока');
             }
             this.saveRoomState();
@@ -350,6 +282,7 @@ export default {
                     this.startGame = true;
                     this.inBattleStore.reset();
                     localStorage.setItem('role', this.role);
+                    localStorage.setItem('myShips', JSON.stringify(this.ships));
                     this.$router.push({ name: 'inbattle', params: { gameId: this.gameId } });
                     break
 
@@ -446,14 +379,7 @@ export default {
         },
         async sendChatMessage(text) {
             try {
-                console.log('Отправляем сообщение в чат:', text);
-                console.log('gameId', this.gameId);
-                console.log('playerId', this.playerId);
-                await axios.post(`https://${this.api}/api/v1/${this.gameId}/chat_message`, {
-                    playerId: this.playerId,
-                    textMessage: text
-                });
-                // Не пушим в chatMessages — сообщение придёт через WebSocket!
+                await this.roomService.sendChatMessage(text);
             } catch (e) {
                 alert('Ошибка отправки сообщения');
             }
