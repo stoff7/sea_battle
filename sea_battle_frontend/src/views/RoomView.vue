@@ -281,6 +281,13 @@ export default {
                 case 'gameStarted':
                     this.startGame = true;
                     this.inBattleStore.reset();
+                    if (this.role === 'host') {
+                        this.inBattleStore.setNextPlayerId(this.playerId)
+                    }
+                    else {
+                        this.inBattleStore.setNextPlayerId(this.opponentId)
+                    }
+                    this.userStorage.setPlayerId(this.playerId)
                     this.userStorage.setOpponentId(this.opponentId);
                     this.userStorage.setOpponentName(this.opponentUsername);
                     localStorage.setItem('role', this.role);

@@ -44,10 +44,12 @@ class ApiFacade {
   }
 
   async fight(api, gameId, playerId, coord) {
+    console.log(`Sending fight request for game ${gameId}, player ${playerId}, coord ${coord}`);
     const response = await axios.patch(`https://${api}/api/v1/${gameId}/fight`, {
       playerId,
       coord,
     });
+    console.log(`Fight response: ${JSON.stringify(response.data)}`);
     return response;
   }
 

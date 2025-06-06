@@ -66,6 +66,7 @@ import { useUsersStore } from '@/stores/users';
 import { useInBattleStore } from '@/stores/inbattle';
 import { useChatStore } from '@/stores/chat';
 import { getGameService } from '@/logic/gameService';
+import { use } from 'chai';
 
 
 export default {
@@ -76,19 +77,20 @@ export default {
         const inBattleStore = useInBattleStore();
         const chatStorage = useChatStore();
         const api = import.meta.env.VITE_API;
-        const gameService = getGameService(api, this.gameId, this.playerId);
+        const gameService = getGameService(api, this.gameId, userStorage.playerId)
+
 
         return {
             gridSize: 10,
             api,
             gameId: this.$route.params.gameId,
-            playerId: this.userStorage.playerId,
-            username: this.userStorage.username,
-            opponentId: this.userStorage.opponentId,
-            opponentName: this.userStorage.opponentName,
+            playerId: userStorage.playerId,
+            username: userStorage.username,
+            opponentId: userStorage.opponentId,
+            opponentName: userStorage.opponentName,
             enemyHits: [],
             enemyMisses: [],
-            nextPlayerId: userStorage.role === 'host' ? this.playerId : this.opponentId,
+            nextPlayerId: inBattleStore.nextPlayerId,
             gameStatus: null,
             attackCellColors: Array(100).fill('#fff'),
             attackBlocked: Array(100).fill(false),
@@ -132,7 +134,7 @@ export default {
     },
     computed: {
         isMyTurn() {
-            return this.playerId === this.nextPlayerId;
+            return this.playerId === this.inBattleStore.nextPlayerId;
         },
         myShipsWithStatus() {
             return this.myShips.map(ship => ({
@@ -210,7 +212,7 @@ export default {
                     const idx = event.data.y * this.gridSize + event.data.x;
                     console.log('Shot fired:', event);
                     console.log('Shot fired at index:', idx);
-                    this.nextPlayerId = event.data.nextPlayerId;
+                    this.inBattleStore.setNextPlayerId(event.data.nextPlayerId);
                     if (event.data.by !== this.playerId) {
                         // Соперник стреляет по твоему полю
                         if (event.data.result === 'HIT') {
@@ -370,10 +372,11 @@ export default {
             // 2. Вычисляем координаты
             const x = idx % this.gridSize;
             const y = Math.floor(idx / this.gridSize);
-
+            const coord = { x, y };
+            console.log(idx, x, y)
             try {
                 // 3. Используем Facade для запроса
-                const response = await this.gameService.fight({ x, y });
+                const response = await this.gameService.fight(coord);
                 if (!response || !response.data) {
                     throw new Error('Пустой ответ от сервера');
                 }
@@ -425,7 +428,7 @@ export default {
                 }
 
                 // 8. Сохраняем новый ход и статус игры
-                this.nextPlayerId = nextPlayerId;
+                this.inBattleStore.setNextPlayerId(nextPlayerId);
                 this.gameStatus = gameStatus;
 
             } catch (error) {

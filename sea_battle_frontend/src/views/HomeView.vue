@@ -60,6 +60,7 @@
 
 <script>
 import { useUsersStore } from '@/stores/users';
+import { useChatStore } from '@/stores/chat';
 import leftImg from '@/assets/images/left.jpeg';
 import rightImg from '@/assets/images/right.jpeg';
 import LanguageButton from '@/components/LanguageButton.vue';
@@ -71,6 +72,8 @@ export default {
   components: { LanguageButton },
   data() {
     const usersStore = useUsersStore();
+    const chatStore = useChatStore();
+    chatStore.clear();
     const apiBase = 'https://' + import.meta.env.VITE_API + '/api/v1';
     return {
       apiFacade: getApiFacade(apiBase),
